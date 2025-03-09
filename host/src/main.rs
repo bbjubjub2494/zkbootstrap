@@ -3,8 +3,6 @@
 use methods::{STAGE0_ELF, STAGE0_ID};
 use risc0_zkvm::{default_prover, ExecutorEnv};
 
-use std::io::Write;
-
 fn main() {
     // Initialize tracing. In order to view logs, run `RUST_LOG=info cargo run`
     tracing_subscriber::fmt()
@@ -14,7 +12,8 @@ fn main() {
     // An executor environment describes the configurations for the zkVM
     // including program inputs.
     let stdin = std::io::stdin();
-    let env = ExecutorEnv::builder().stdin(&stdin).build().unwrap();
+    let stdout = std::io::stdout();
+    let env = ExecutorEnv::builder().stdin(&stdin).stdout(&stdout).build().unwrap();
 
     // Obtain the default prover.
     let prover = default_prover();
@@ -29,8 +28,4 @@ fn main() {
     // The receipt was verified at the end of proving, but the below code is an
     // example of how someone else could verify this receipt.
     receipt.verify(STAGE0_ID).unwrap();
-
-    // For example:
-    let mut stdout = std::io::stdout();
-    stdout.write(&receipt.journal.bytes).unwrap();
 }
