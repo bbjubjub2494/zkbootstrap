@@ -1,0 +1,55 @@
+# M1 port of https://github.com/risc0/risc0/blob/22c8cdb7280a1b871c559549d22c72d133007b62/risc0/zkvm/examples/loop.s#L26
+
+# M1 --architecture riscv32 --little-endian -f $M2libc/riscv32/riscv32_defs.M1 -f loop.M1 -o loop.hex2
+# hex2 --architecture riscv32 --little-endian -f $M2libc/riscv32/ELF-riscv32.hex2 -f loop.hex2
+
+:_start
+    # Load loop iteration count word from stdin via `read` syscall
+    #
+    # NOTE: We don't check for errors since we assume the host will provide
+    # correct input
+    rd_t0 !2 addi # `ecall::SOFTWARE`
+    rd_a0 ~count auipc     # Set syscall buffer pointer
+    rd_a0 rs1_a0 !count addi
+    rd_a1 !1 addi         # Set syscall buffer length in words
+    rd_a2 ~sys_read auipc  # Set syscall name C string
+    rd_a2 rs1_a2 !sys_read addi
+    rd_a3 !0 addi             # Set read file to `STDIN_FILENO`
+    rd_a4 !4 addi         # Set read length to 1 word
+    ecall                 # `ecall(t0, a0, a1, a2, a3, a4)`
+
+    # Prepare loop.
+rd_a4 !0 addi         # Initialize `iter` word
+rd_a5 ~count auipc
+rd_a5 rs1_a5 !count lw        # Load `count` word from `read` result
+
+:loop
+rd_a4 rs1_a4 !1    addi    # iter += 1
+rs1_a4 rs2_a5 @loop    bltu  # if (iter < count) goto loop
+
+# Halt syscall to terminate.
+rd_t0 !0 addi    # `ecall::HALT`
+rd_a0 !0 addi    # `halt::TERMINATE` with 0 exit code
+rd_a1 ~digest auipc    # Set output digest
+rd_a1 rs1_a1 !digest addi    # Set output digest
+ecall                 # `ecall(t0, a0, a1)`
+ret             # unreachable, just for disassemblers
+
+#
+#.section .data
+#
+## Memory location for the `read` syscall to write the loop iteration count.
+:count
+NULL
+#
+#.section .rodata
+#
+## SHA2-256 hash of the null journal & assumption
+:digest
+'5C176F83 53F3C062 42651683 340B8B7E 19D2D1F6 AE4D7602 B8C606B4 B075B53D'
+#
+## Null-terminated `read` syscall name
+:sys_read
+"risc0_zkvm_platform::syscall::nr::SYS_READ"
+
+:ELF_end
