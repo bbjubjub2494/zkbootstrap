@@ -19,38 +19,38 @@
     ecall                 # `ecall(t0, a0, a1, a2, a3, a4)`
 
     # Prepare loop.
-rd_a4 !0 addi         # Initialize `iter` word
-rd_a5 ~count auipc
-rd_a5 rs1_a5 !count lw        # Load `count` word from `read` result
+    rd_a4 !0 addi         # Initialize `iter` word
+    rd_a5 ~count auipc
+    rd_a5 rs1_a5 !count lw        # Load `count` word from `read` result
 
 :loop
-rd_a4 rs1_a4 !1    addi    # iter += 1
-rs1_a4 rs2_a5 @loop    bltu  # if (iter < count) goto loop
+    rd_a4 rs1_a4 !1    addi    # iter += 1
+    rs1_a4 rs2_a5 @loop    bltu  # if (iter < count) goto loop
 
-# Halt syscall to terminate.
-rd_t0 !0 addi    # `ecall::HALT`
-rd_a0 !0 addi    # `halt::TERMINATE` with 0 exit code
-rd_a1 ~digest auipc    # Set output digest
-rd_a1 rs1_a1 !digest addi    # Set output digest
-ecall                 # `ecall(t0, a0, a1)`
-ret             # unreachable, just for disassemblers
+    # Halt syscall to terminate.
+    rd_t0 !0 addi    # `ecall::HALT`
+    rd_a0 !0 addi    # `halt::TERMINATE` with 0 exit code
+    rd_a1 ~digest auipc    # Set output digest
+    rd_a1 rs1_a1 !digest addi    # Set output digest
+    ecall                 # `ecall(t0, a0, a1)`
+    ret             # unreachable, just for disassemblers
 
 #
 #.section .data
 #
 ## Memory location for the `read` syscall to write the loop iteration count.
 :count
-NULL
+    NULL
 #
 #.section .rodata
 #
 ## SHA2-256 hash of the null journal & assumption
 :digest
-'836f175c62c0f353831665427e8b0b34f6d1d21902764daeb406c6b83db575b0'
+    '836f175c62c0f353831665427e8b0b34f6d1d21902764daeb406c6b83db575b0'
 
 #
 ## Null-terminated `read` syscall name
 :sys_read
-"risc0_zkvm_platform::syscall::nr::SYS_READ"
+    "risc0_zkvm_platform::syscall::nr::SYS_READ"
 
 :ELF_end

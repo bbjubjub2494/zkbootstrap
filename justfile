@@ -1,6 +1,10 @@
+sha256sum:
+  M2-Mesoplanet -A riscv32 -f sha256sum.c -o sha256sum
+  cargo run sha256sum
+
 compile_hello:
   M2-Mesoplanet -A riscv32 -f hello.c -o hello
-  RISC0_DEV_MODE= cargo run
+  cargo run
 
 assemble_loop:
   M1 --architecture riscv32 --little-endian -f M2libc/riscv32/riscv32_defs.M1 -f loop.M1 -o loop.hex2

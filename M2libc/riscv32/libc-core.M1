@@ -18,6 +18,8 @@
     rd_sp ~0x200400 lui            ; zkvm-specific per risc0/zkvm/platform/src/memory.rs
     rd_sp rs1_sp !0x200400 addi
 
+    rd_fp rs1_sp mv                ; init frame pointer
+
     ; NOTE argv and envp are handled using syscalls, not main() arguments
 
     ; Call main function

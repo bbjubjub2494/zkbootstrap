@@ -1,11 +1,11 @@
-use risc0_zkvm::{compute_image_id, default_prover, sha, sha::Sha256, Bytes, ExecutorEnv};
+use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv};
 
 use std::io::Read;
 
 fn main() -> anyhow::Result<()> {
     let mut program = vec![];
     {
-        let mut f = std::fs::File::open("hello").unwrap();
+        let mut f = std::fs::File::open(std::env::args().nth(1).unwrap()).unwrap();
         f.read_to_end(&mut program).unwrap();
     }
 
