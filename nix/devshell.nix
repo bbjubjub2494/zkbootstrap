@@ -1,14 +1,13 @@
 { perSystem, pkgs }:
 pkgs.mkShell {
   # Add build dependencies
-  packages = [ pkgs.rustup perSystem.self.rzup pkgs.mescc-tools pkgs.just ];
+  packages = [ pkgs.rustup perSystem.self.rzup pkgs.mescc-tools pkgs.m2-planet pkgs.m2-mesoplanet pkgs.just ];
 
   # Add environment variables
   env.RISC0_DEV_MODE = "1";
-  env.M2libc = "${pkgs.m2libc}/include/M2libc";
 
   # Load custom bash code
   shellHook = ''
-
+  test -L M2libc || ln -s ${pkgs.m2libc}/include/M2libc .
   '';
 }
