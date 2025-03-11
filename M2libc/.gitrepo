@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/oriansj/M2libc
+	branch = main
+	commit = 5a7c12a7be39cbce113c5459d77467b829a1ecc5
+	parent = 44c6583543b1414eebb78957c4da291fc2d9702c
+	method = merge
+	cmdver = 0.4.9
