@@ -11,7 +11,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut output = vec![];
         let env = ExecutorEnv::builder()
-            .stdin(&[1,0,0,1u8] as &[u8])
+            .stdin(&[1,0,0,0u8] as &[u8])
             .stdout(&mut output)
             .build()?;
 
@@ -22,8 +22,8 @@ fn main() -> anyhow::Result<()> {
         // This struct contains the receipt along with statistics about execution of the guest
         let prove_info = prover.prove(env, &program)?;
 
-        let image_id = compute_image_id(&program)?;
         println!("output = {:?}", output);
+        let image_id = compute_image_id(&program)?;
         prove_info.receipt.verify(image_id).map_err(anyhow::Error::new)?;
     Ok(())
 }

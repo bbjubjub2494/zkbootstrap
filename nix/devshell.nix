@@ -8,6 +8,5 @@ pkgs.mkShell {
 
   # Load custom bash code
   shellHook = ''
-  test -L M2libc || ln -s ${pkgs.m2libc}/include/M2libc .
   '';
 }
