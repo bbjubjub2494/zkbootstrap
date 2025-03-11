@@ -46,7 +46,8 @@ NULL
 #
 ## SHA2-256 hash of the null journal & assumption
 :digest
-'5C176F83 53F3C062 42651683 340B8B7E 19D2D1F6 AE4D7602 B8C606B4 B075B53D'
+'836f175c62c0f353831665427e8b0b34f6d1d21902764daeb406c6b83db575b0'
+
 #
 ## Null-terminated `read` syscall name
 :sys_read
