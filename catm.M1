@@ -1,17 +1,21 @@
 # M1 --architecture riscv32 --little-endian -f $M2libc/riscv32/riscv32_defs.M1 -f catm.M1 -o catm.hex2
 # hex2 --architecture riscv32 --little-endian -f $M2libc/riscv32/ELF-riscv32.hex2 -f catm.hex2
+#
 
 :_start
+    rd_sp ~0x200400 lui            ; zkvm-specific per risc0/zkvm/platform/src/memory.rs
+    rd_sp rs1_sp !0x200400 addi
+
+    rd_t2 rs1_sp !-1000 addi # allocate buffer
+    rd_sp rs1_sp !-1004 addi
     rd_t0 !2 addi # `ecall::SOFTWARE`
-    rd_a0 ~buffer auipc
-    rd_a0 rs1_a0 !buffer addi
-    rd_a1 !16 addi         # syscall buffer length in words
+    rd_a0 rs1_t2 mv
+    rd_a1 !125 addi         # syscall buffer length in words
     rd_a2 ~sys_read auipc  # Set syscall name C string
     rd_a2 rs1_a2 !sys_read addi
     rd_a3 !0 addi          # Set file to `STDIN_FILENO`
-    rd_a4 ~buffer auipc
-    rd_a4 rs1_a4 !buffer addi
-    rd_a5 !64 addi         # Set write length
+    rd_a4 rs1_t2 mv
+    rd_a5 !1000 addi         # Set read length
     ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
     rd_t1 rs1_a0 mv # return value
 
@@ -21,9 +25,7 @@
     rd_a2 ~sys_write auipc  # Set syscall name C string
     rd_a2 rs1_a2 !sys_write addi
     rd_a3 !1 addi          # Set file to `STDOUT_FILENO`
-    rd_a4 ~buffer auipc
-    rd_a4 rs1_a4 !buffer addi
-    #rd_a5 !64 addi         # Set write length
+    rd_a4 rs1_t2 mv
     rd_a5 rs1_t1 mv         # Set write length
     ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
 
@@ -35,15 +37,6 @@
     ecall                 # `ecall(t0, a0, a1)`
     ret             # unreachable, just for disassemblers
 
-#
-#.section .data
-#
-## 64-byte buffer
-:buffer
-    "XXXXXXXX" "XXXXXXXX"
-    "XXXXXXXX" "XXXXXXXX"
-    "XXXXXXXX" "XXXXXXXX"
-    "XXXXXXXX" "XXXXXXXX"
 #
 #.section .rodata
 #
