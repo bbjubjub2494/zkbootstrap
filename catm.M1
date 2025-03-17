@@ -48,8 +48,6 @@
 #.section .rodata
 #
 
-:greeting "Hello world!\n"
-
 :digest
     '836f175c62c0f353831665427e8b0b34f6d1d21902764daeb406c6b83db575b0'
 

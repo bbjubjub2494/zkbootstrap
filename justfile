@@ -11,10 +11,11 @@ sha256sum:
   M2-Mesoplanet -A riscv32 -f sha256sum.c -o sha256sum
   cargo run sha256sum
 
-compile_hello:
+hello:
   M2-Mesoplanet -A riscv32 -f hello.c -o hello
-  cargo run
+  cargo run hello
 
-assemble_loop:
+loop:
   M1 --architecture riscv32 --little-endian -f M2libc/riscv32/riscv32_defs.M1 -f loop.M1 -o loop.hex2
   hex2 -B 0x100000 --architecture riscv32 --little-endian -f M2libc/riscv32/ELF-riscv32.hex2 -f loop.hex2 -o loop
+  echo -ne 'a\0\0\0' | cargo run loop
