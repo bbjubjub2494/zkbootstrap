@@ -9,7 +9,7 @@
 
 #define DIGEST_WORDS 8
 #define DIGEST_BYTES 32
-#define MAX_SHA_COMPRESS_BLOCKS 1000
+#define BLOCK_BYTES 64
 
 
 int syscall3(int ecall_type, void *dst, int dst_len_in_words, int, int, int) {
@@ -22,7 +22,6 @@ int syscall3(int ecall_type, void *dst, int dst_len_in_words, int, int, int) {
 	    "rd_a4 rs1_sp !0 lw"
     "ecall"                 // ecall(t0, a0, a1, a2, a3, a4)
 	    );
-		// TODO handle return values in a0, a1
 }
 
 int syscall4(int ecall_type, void *dst, int dst_len_in_words, int, int, int, int) {
@@ -66,7 +65,9 @@ unsigned min(unsigned a, unsigned b) {
 	    return b;
 }
 
+/*
 // NOTE: unpadded, needs proper in_state
+# define MAX_SHA_COMPRESS_BLOCKS 1000
 void sys_sha_buffer(unsigned *out_state, unsigned *in_state, char *buf, unsigned count) {
     char *ptr = buf;
     unsigned count_remain = count;
@@ -87,6 +88,7 @@ void sys_sha_buffer(unsigned *out_state, unsigned *in_state, char *buf, unsigned
         current_in_state = out_state;
     }
 }
+*/
 
 void sys_halt(unsigned user_exit, unsigned *out_state) {
     ecall1(
@@ -103,39 +105,58 @@ int write(int fd, char *data, unsigned nbytes) {
 }
 int read(int fd, char *buf, unsigned nbytes) {
 	// TODO handle weird last word behaviour
-    return syscall3(ECALL_SOFTWARE, buf, (nbytes + 3)/4, SYS_READ, fd, nbytes);
+    return syscall4(ECALL_SOFTWARE, buf, (nbytes + 3)/4, SYS_READ, fd, buf, nbytes);
 }
 
 
-unsigned in_state[DIGEST_WORDS];
-unsigned out_state[DIGEST_WORDS];
+unsigned sha_state[DIGEST_WORDS];
 
-char buf[64];
+// 1 block working space, 1 extra block to deal with padding
+char buf[128];
 unsigned len = 0;
+	unsigned bitlen;
+	unsigned bitlenpos;
+	unsigned count;
+	unsigned i;
+	unsigned totallen;
 
 unsigned htonl(unsigned x) {
 	return ((x & 0xff) << 24) | (((x >> 8) & 0xff) << 16) | (((x >> 16) & 0xff) << 8) | ((x >> 24) & 0xff);
 }
 int main() {
-	in_state[0] = htonl(0x6a09e667);
-	in_state[1] = htonl(0xbb67ae85);
-	in_state[2] = htonl(0x3c6ef372);
-	in_state[3] = htonl(0xa54ff53a);
-	in_state[4] = htonl(0x510e527f);
-	in_state[5] = htonl(0x9b05688c);
-	in_state[6] = htonl(0x1f83d9ab);
-	in_state[7] = htonl(0x5be0cd19);
-	// padding: 1 byte marker, 8-byte 64-bit length and zeroes in-between
-	buf[len] = 0x80;
-	//char* last_block = &buf[(len + 9) / 32 * 32];
-	/*
-	unsigned i;
-	for (i = 0; i < 8; i+=1)
-		buf[32-i] = len >> (8*i);
-		*/
-
-	sys_sha_buffer(out_state, in_state, buf, 1);
-	// note: endianness
-	write(1, out_state, DIGEST_BYTES);
-	//write(1, in_state, 32);
+	sha_state[0] = htonl(0x6a09e667);
+	sha_state[1] = htonl(0xbb67ae85);
+	sha_state[2] = htonl(0x3c6ef372);
+	sha_state[3] = htonl(0xa54ff53a);
+	sha_state[4] = htonl(0x510e527f);
+	sha_state[5] = htonl(0x9b05688c);
+	sha_state[6] = htonl(0x1f83d9ab);
+	sha_state[7] = htonl(0x5be0cd19);
+	while(1) {
+		len = read(0, buf, BLOCK_BYTES);
+		totallen += len;
+		if (len == BLOCK_BYTES) {
+			sys_sha_compress(sha_state, sha_state, buf, buf + DIGEST_BYTES, 1);
+		} else {
+			bitlenpos = 56;
+			count = 1;
+			if (len >= bitlenpos) {
+				bitlenpos += BLOCK_BYTES;
+				count += 1;
+			}
+			buf[len] = 0x80;
+			bitlen = totallen << 3;
+			//buf[bitlenpos] = bitlen >> 56;
+			//buf[bitlenpos+1] = bitlen >> 48;
+			//buf[bitlenpos+2] = bitlen >> 40;
+			//buf[bitlenpos+3] = bitlen >> 32;
+			buf[bitlenpos+4] = bitlen >> 24;
+			buf[bitlenpos+5] = bitlen >> 16;
+			buf[bitlenpos+6] = bitlen >> 8;
+			buf[bitlenpos+7] = bitlen;
+			sys_sha_compress(sha_state, sha_state, buf, buf + DIGEST_BYTES, count);
+			break;
+		}
+	}
+	write(1, sha_state, DIGEST_BYTES);
 }

@@ -9,7 +9,8 @@ cat:
 
 sha256sum:
   M2-Mesoplanet -A riscv32 -f sha256sum.c -o sha256sum
-  cargo run sha256sum
+  echo hello world! hello world! hello world! hello world! hello world! hello world! hello world! hello world! hello world! hello | sha256sum
+  echo hello world! hello world! hello world! hello world! hello world! hello world! hello world! hello world! hello world! hello | cargo run sha256sum | xxd
 
 hello:
   M2-Mesoplanet -A riscv32 -f hello.c -o hello
