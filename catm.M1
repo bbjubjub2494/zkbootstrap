@@ -2,19 +2,29 @@
 # hex2 --architecture riscv32 --little-endian -f $M2libc/riscv32/ELF-riscv32.hex2 -f catm.hex2
 
 :_start
-    # Load loop iteration count word from stdin via `read` syscall
-    #
-    # NOTE: We don't check for errors since we assume the host will provide
-    # correct input
+    rd_t0 !2 addi # `ecall::SOFTWARE`
+    rd_a0 ~buffer auipc
+    rd_a0 rs1_a0 !buffer addi
+    rd_a1 !16 addi         # syscall buffer length in words
+    rd_a2 ~sys_read auipc  # Set syscall name C string
+    rd_a2 rs1_a2 !sys_read addi
+    rd_a3 !0 addi          # Set file to `STDIN_FILENO`
+    rd_a4 ~buffer auipc
+    rd_a4 rs1_a4 !buffer addi
+    rd_a5 !64 addi         # Set write length
+    ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
+    rd_t1 rs1_a0 mv # return value
+
     rd_t0 !2 addi # `ecall::SOFTWARE`
     rd_a0 !0 addi         # syscall buffer pointer
     rd_a1 !0 addi         # syscall buffer length in words
     rd_a2 ~sys_write auipc  # Set syscall name C string
     rd_a2 rs1_a2 !sys_write addi
     rd_a3 !1 addi          # Set file to `STDOUT_FILENO`
-    rd_a4 ~greeting auipc
-    rd_a4 rs1_a4 !greeting addi
-    rd_a5 !12 addi         # Set write length
+    rd_a4 ~buffer auipc
+    rd_a4 rs1_a4 !buffer addi
+    #rd_a5 !64 addi         # Set write length
+    rd_a5 rs1_t1 mv         # Set write length
     ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
 
     # Halt syscall to terminate.
@@ -28,9 +38,12 @@
 #
 #.section .data
 #
-## Write Read buffer
-:count
-    NULL
+## 64-byte buffer
+:buffer
+    "XXXXXXXX" "XXXXXXXX"
+    "XXXXXXXX" "XXXXXXXX"
+    "XXXXXXXX" "XXXXXXXX"
+    "XXXXXXXX" "XXXXXXXX"
 #
 #.section .rodata
 #
