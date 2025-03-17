@@ -5,7 +5,7 @@ catm:
 
 cat:
   M2-Mesoplanet -A riscv32 -f cat.c -o cat
-  echo hello world! | cargo run cat
+  echo hello world! | cargo run cat | xxd
 
 sha256sum:
   M2-Mesoplanet -A riscv32 -f sha256sum.c -o sha256sum

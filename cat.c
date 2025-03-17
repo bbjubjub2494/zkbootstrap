@@ -29,8 +29,6 @@ void print(unsigned x) {
 
 
 int syscall3(int ecall_type, void *dst, int dst_len_in_words, int, int, int) {
-	unsigned ret0;
-	ret0 = 2;
 		asm(
 	    "rd_t0 rs1_sp !24 lw"
 	    "rd_a0 rs1_sp !20 lw"
@@ -41,9 +39,6 @@ int syscall3(int ecall_type, void *dst, int dst_len_in_words, int, int, int) {
     "ecall"                 // ecall(t0, a0, a1, a2, a3, a4)
 	    "rs1_sp rs2_a0 !0 sw"
 	    );
-		print(ret0);
-		return ret0;
-		// TODO handle return values in a0, a1
 }
 
 int syscall4(int ecall_type, void *dst, int dst_len_in_words, int, int, int, int) {
@@ -55,7 +50,7 @@ int syscall4(int ecall_type, void *dst, int dst_len_in_words, int, int, int, int
 	    "rd_a3 rs1_sp !8 lw"
 	    "rd_a4 rs1_sp !4 lw"
 	    "rd_a5 rs1_sp !0 lw"
-    "ecall"                 // ecall(t0, a0, a1, a2, a3, a4)
+    "ecall"                 // ecall(t0, a0, a1, a2, a3, a4,a5)
 	    );
 }
 
@@ -124,8 +119,7 @@ int write(int fd, char *data, unsigned nbytes) {
 }
 int read(int fd, char *buf, unsigned nbytes) {
 	// TODO handle weird last word behaviour
-		int ret =syscall3(ECALL_SOFTWARE, buf, (nbytes + 3)/4, SYS_READ, fd, nbytes);
-    return ret;
+		return syscall4(ECALL_SOFTWARE, buf, (nbytes + 3)/4, SYS_READ, fd, buf, nbytes);
 }
 
 
@@ -135,9 +129,9 @@ unsigned out_state[DIGEST_WORDS];
 #define BUF_SIZE 1024
 char buf[BUF_SIZE];
 
+	unsigned nbytes;
+
 int main() {
-	//unsigned nbytes = read(0, buf, BUF_SIZE);
-	unsigned nbytes = read(0, buf, 4);
-	write(1, buf, 4);
-	//write(1, buf, nbytes);
+	nbytes = read(0, buf, BUF_SIZE);
+	write(1, buf, nbytes);
 }
