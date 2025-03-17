@@ -1,3 +1,6 @@
+jcat:
+  M2-Mesoplanet -A riscv32 -f jcat.c -o jcat
+  echo -n test | RISC0_DEV_MODE=0 cargo run jcat | xxd
 catm:
   M1 --architecture riscv32 --little-endian -f M2libc/riscv32/riscv32_defs.M1 -f catm.M1 -o catm.hex2
   hex2 -B 0x100000 --architecture riscv32 --little-endian -f M2libc/riscv32/ELF-riscv32.hex2 -f catm.hex2 -o catm
