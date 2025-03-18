@@ -121,7 +121,7 @@ unsigned stdin_offset = 0;
 unsigned stdin_end = 0;
 
 char load_char_unaligned(char *ptr) {
-	// needed because the M2 compiler generates unaligned lw, which risc0 doesn't like.
+	// needed because the M2 compiler generates unaligned lw, which risc0 doesnt like.
 	asm(
 			"rd_a0 rs1_sp !0 addi"
 			"rd_a0 rs1_a0 !0 lw"
