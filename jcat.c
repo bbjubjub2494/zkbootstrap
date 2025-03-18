@@ -117,7 +117,61 @@ unsigned sha_state_rzoutput[DIGEST_WORDS];
 
 // 1 block working space, 1 extra block to deal with padding
 char buf_stdin[128];
+unsigned stdin_offset = 0;
+unsigned stdin_end = 0;
+
+char load_char_unaligned(char *ptr) {
+	// needed because the M2 compiler generates unaligned lw, which risc0 doesn't like.
+	asm(
+			"rd_a0 rs1_sp !0 addi"
+			"rd_a0 rs1_a0 !0 lw"
+			"rd_a0 rs1_a0 lb"
+	   );
+}
+
+// requirement: getchar is not called again after EOF, otherwise it can re-hash the last block
+int getchar() {
+	if (stdin_offset == stdin_end && stdin_end % 64 == 0) {
+		// hash unless the buffer is empty
+		if (stdin_offset != 0) {
+			sha_compress(sha_state_stdin, buf_stdin, 1);
+		}
+		// read next block
+		stdin_end += read(0, buf_stdin, 64);
+	}
+	if (stdin_offset == stdin_end) {
+		// EOF
+		return -1;
+	}
+		char c = load_char_unaligned(buf_stdin + (stdin_offset % 64));
+		//char c = buf_stdin[stdin_offset % 64];
+	stdin_offset += 1;
+	return c;
+}
+
 char buf_stdout[128];
+unsigned stdout_offset = 0;
+void putchar(char c) {
+	if (stdout_offset % 64 == 0) {
+		// hash and output unless the buffer is empty
+		if (stdout_offset != 0) {
+			sha_compress(sha_state_stdout, buf_stdout, 1);
+			write(1, buf_stdout, 64);
+		}
+	}
+	buf_stdout[stdout_offset % 64] = c;
+	stdout_offset += 1;
+}
+
+void stdin_finalize() {
+	sha_finalize(sha_state_stdin, buf_stdin, stdin_offset);
+}
+
+void stdout_finalize() {
+	write(1, buf_stdout, stdout_offset % 64);
+	sha_finalize(sha_state_stdout, buf_stdout, stdin_offset);
+}
+
 char buf[128];
 
 // FIXME something weird with the registers breaks stack variables
@@ -143,23 +197,15 @@ void *memzero(char *buf, unsigned n) {
 	return buf;
 }
 
+int c; // FIXME stack variables broken for some reason
 int main() {
 	sha_reset(sha_state_stdin);
 	sha_reset(sha_state_stdout);
-	while(1) {
-		nbytes = read(0, buf_stdin, BLOCK_BYTES);
-		write(1, buf_stdin, nbytes);
-		total_bytes += nbytes;
-		if (nbytes == BLOCK_BYTES) {
-			sha_compress(sha_state_stdin, buf_stdin, 1);
-			sha_compress(sha_state_stdout, buf_stdin, 1);
-		} else {
-			sha_finalize(sha_state_stdin, buf_stdin, total_bytes);
-			sha_finalize(sha_state_stdout, buf_stdin, total_bytes);
-			break;
-		}
-	}
+	while ((c = getchar()) >= 0)
+		putchar(c);
 
+	stdin_finalize();
+	stdout_finalize();
 	write(3, sha_state_stdin, DIGEST_BYTES);
 	write(3, sha_state_stdout, DIGEST_BYTES);
 	sha_reset(sha_state_journal);
