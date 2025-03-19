@@ -1,2 +1,3 @@
 derived:
   M2-Mesoplanet -A riscv32 -f libj_prelude.c -f jcat.c -o derived/jcat
+  M2-Mesoplanet -A riscv32 -f libj_prelude.c -f jhex.c -o derived/jhex

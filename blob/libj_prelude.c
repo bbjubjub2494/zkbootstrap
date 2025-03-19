@@ -11,6 +11,8 @@
 #define DIGEST_BYTES 32
 #define BLOCK_BYTES 64
 
+#define EOF (-1)
+
 
 void *memcpy(char *dest, char *src, unsigned n) {
 	unsigned i = 0;
@@ -165,8 +167,7 @@ int getchar() {
 		stdin_end += read(0, buf_stdin, 64);
 	}
 	if (stdin_offset == stdin_end) {
-		// EOF
-		return -1;
+		return EOF;
 	}
 	char c = load_char_unaligned(buf_stdin + (stdin_offset % 64));
 	stdin_offset += 1;
@@ -191,7 +192,7 @@ char rzdigest_buf[128];
 void j_finalize_and_halt() {
 	sha_finalize(sha_state_stdin, buf_stdin, stdin_offset);
 	write(1, buf_stdout, stdout_offset % 64);
-	sha_finalize(sha_state_stdout, buf_stdout, stdin_offset);
+	sha_finalize(sha_state_stdout, buf_stdout, stdout_offset);
 
 	sha_reset(sha_state_journal);
 	memcpy(journal_buf, sha_state_stdin, DIGEST_BYTES);
