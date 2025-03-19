@@ -1,27 +1,36 @@
-use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv};
+use zkbootstrap::*;
 
-use std::io::Read;
+use std::fs::File;
+use std::io::{Read, Write};
 
 fn main() -> anyhow::Result<()> {
-    let mut program = vec![];
-    {
-        let mut f = std::fs::File::open(std::env::args().nth(1).unwrap()).unwrap();
-        f.read_to_end(&mut program).unwrap();
-    }
+    let program = {
+        let mut buf = vec![];
+        let mut f = File::open(std::env::args().nth(1).unwrap())?;
+        f.read_to_end(&mut buf)?;
+        buf
+    };
 
-        let env = ExecutorEnv::builder()
-            .stdin(std::io::stdin())
-            .stdout(std::io::stdout())
-            .build()?;
+    let stdin = {
+        let mut buf = vec![];
+        let mut f = std::io::stdin();
+        f.read_to_end(&mut buf)?;
+        buf
+    };
 
-        // Obtain the default prover.
-        let prover = default_prover();
+    let mut store = InMemoryStore::new();
+    let program_hash = store.add_blob(Blob { content: program });
+    let stdin_hash = store.add_blob(Blob { content: stdin });
+    let node_hash = store.add_node(&Node {
+        program: BlobReference(program_hash),
+        stdin: BlobReference(stdin_hash),
+    });
 
-        // Proof information by proving the specified ELF binary.
-        // This struct contains the receipt along with statistics about execution of the guest
-        let prove_info = prover.prove(env, &program)?;
+    let output_hash = reexecute(&mut store, &node_hash);
 
-        let image_id = compute_image_id(&program)?;
-        prove_info.receipt.verify(image_id).map_err(anyhow::Error::new)?;
+    let output_blob = resolve_blob(&store, &BlobReference(output_hash));
+
+    std::io::stdout().write_all(&output_blob.content)?;
+
     Ok(())
 }
