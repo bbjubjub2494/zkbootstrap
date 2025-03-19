@@ -2,70 +2,82 @@ use sha2::{Digest, Sha256};
 
 use std::collections::HashMap;
 
-type Hash = [u8; 32];
+#[derive(Eq, PartialEq, Hash, Debug, Clone, Copy)]
+pub struct BlobRef {
+    pub hash: [u8; 32],
+}
 
 #[derive(Debug, Clone)]
 pub struct Blob {
-    pub content: Vec<u8>,
+    pub bytes: Vec<u8>,
 }
 
 impl Blob {
-    pub fn digest(&self) -> Hash {
+    pub fn compute_ref(&self) -> BlobRef {
         let mut hasher = Sha256::new();
-        hasher.update(&self.content);
-        hasher.finalize().into()
+        hasher.update(&self.bytes);
+        BlobRef {
+            hash: hasher.finalize().into(),
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Hash, Debug, Clone, Copy)]
+pub struct NodeRef {
+    pub hash: [u8; 32],
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Node {
+    pub program: BlobOrOutputRef,
+    pub input: BlobOrOutputRef,
+}
+
+impl Node {
+    pub fn compute_ref(&self) -> NodeRef {
+        let mut hasher = Sha256::new();
+        hasher.update(Sha256::digest(b"zkbootstrap::Node"));
+        hasher.update(self.program.digest());
+        hasher.update(self.input.digest());
+        NodeRef {
+            hash: hasher.finalize().into(),
+        }
+    }
+}
+
+impl From<BlobRef> for BlobOrOutputRef {
+    fn from(blob_ref: BlobRef) -> Self {
+        Self::BlobRef(blob_ref)
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum NodeOrBlobReference {
-    NodeReference(Hash),
-    BlobReference(Hash),
+pub enum BlobOrOutputRef {
+    OutputRef(NodeRef),
+    BlobRef(BlobRef),
 }
-impl NodeOrBlobReference {
-    pub fn digest(&self) -> Hash {
+impl BlobOrOutputRef {
+    pub fn digest(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
         match self {
-            NodeOrBlobReference::NodeReference(d) => {
-                hasher.update(Sha256::digest(
-                    b"zkboostrap.NodeOrBlobReference::NodeReference",
-                ));
-                hasher.update(d);
+            BlobOrOutputRef::OutputRef(r) => {
+                hasher.update(Sha256::digest(b"zkbootstrap::BlobOrOutputRef::OutputRef"));
+                hasher.update(r.hash);
             }
-            NodeOrBlobReference::BlobReference(d) => {
-                hasher.update(Sha256::digest(
-                    b"zkboostrap.NodeOrBlobReference::BlobReference",
-                ));
-                hasher.update(d);
+            BlobOrOutputRef::BlobRef(r) => {
+                hasher.update(Sha256::digest(b"zkbootstrap::BlobOrOutputRef::BlobRef"));
+                hasher.update(r.hash);
             }
         }
         hasher.finalize().into()
     }
 }
 
-pub use NodeOrBlobReference::{BlobReference, NodeReference};
-
-#[derive(Debug, Clone, Copy)]
-pub struct Node {
-    pub program: NodeOrBlobReference,
-    pub stdin: NodeOrBlobReference,
-}
-
-impl Node {
-    pub fn digest(&self) -> Hash {
-        let mut hasher = Sha256::new();
-        hasher.update(Sha256::digest(b"zkbootstrap.Node"));
-        hasher.update(self.program.digest());
-        hasher.update(self.stdin.digest());
-        hasher.finalize().into()
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct InMemoryStore {
-    nodes: HashMap<Hash, Node>,
-    blobs: HashMap<Hash, Blob>,
-    outputs: HashMap<Hash, Hash>,
+    nodes: HashMap<NodeRef, Node>,
+    blobs: HashMap<BlobRef, Blob>,
+    outputs: HashMap<NodeRef, BlobRef>,
 }
 
 impl InMemoryStore {
@@ -76,44 +88,43 @@ impl InMemoryStore {
             outputs: HashMap::new(),
         }
     }
-    pub fn add_node(&mut self, node: &Node) -> Hash {
-        let digest = node.digest();
-        self.nodes.insert(digest, *node);
-        digest
+    pub fn add_node(&mut self, node: &Node) -> NodeRef {
+        let r = node.compute_ref();
+        self.nodes.insert(r, *node);
+        r
     }
-    pub fn add_blob(&mut self, blob: Blob) -> Hash {
-        let digest = blob.digest();
-        self.blobs.insert(digest, blob);
-        digest
+    pub fn add_blob(&mut self, blob: Blob) -> BlobRef {
+        let r = blob.compute_ref();
+        self.blobs.insert(r, blob);
+        r
     }
-    pub fn add_output_trusted(&mut self, node: &Hash, output: &Hash) {
+    pub fn get_blob(&self, blob_ref: BlobRef) -> Option<&Blob> {
+        self.blobs.get(&blob_ref)
+    }
+    pub fn add_output_trusted(&mut self, node: &NodeRef, output: &BlobRef) {
         self.outputs.insert(*node, *output);
     }
 }
 
-pub fn resolve_blob<'a>(store: &'a InMemoryStore, r: &NodeOrBlobReference) -> &'a Blob {
-    let hash = match r {
-        NodeOrBlobReference::NodeReference(ref d) => {
-            store.outputs.get(d).expect("output unavailable")
-        }
-        NodeOrBlobReference::BlobReference(ref d) => d,
+pub fn resolve_blob<'a>(store: &'a InMemoryStore, r: &BlobOrOutputRef) -> (BlobRef, &'a Blob) {
+    let r = match r {
+        BlobOrOutputRef::OutputRef(r) => *store.outputs.get(r).expect("output unavailable"),
+        BlobOrOutputRef::BlobRef(r) => *r,
     };
-    store.blobs.get(hash).expect("blob unavailable")
+    (r, store.blobs.get(&r).expect("blob unavailable"))
 }
 
 use risc0_zkvm::{compute_image_id, default_prover, Executor, ExecutorEnv, LocalProver};
 
-pub fn reexecute(store: &mut InMemoryStore, node_hash: &Hash) -> Hash {
-    let node = store.nodes.get(node_hash).expect("node unavailable");
-    let program_blob = resolve_blob(store, &node.program);
-    let stdin_blob = resolve_blob(store, &node.stdin);
-    let stdin_hash = stdin_blob.digest();
-    // TODO extra input
-    let mut stdout_buffer = vec![];
+pub fn reexecute(store: &mut InMemoryStore, node_ref: &NodeRef) -> BlobRef {
+    let node = store.nodes.get(node_ref).expect("node unavailable");
+    let (_, program_blob) = resolve_blob(store, &node.program);
+    let (input_ref, input_blob) = resolve_blob(store, &node.input);
+    let mut output_buffer = vec![];
 
     let env = ExecutorEnv::builder()
-        .stdin(stdin_blob.content.as_slice())
-        .stdout(&mut stdout_buffer)
+        .stdin(input_blob.bytes.as_slice())
+        .stdout(&mut output_buffer)
         .build()
         .unwrap();
 
@@ -123,21 +134,21 @@ pub fn reexecute(store: &mut InMemoryStore, node_hash: &Hash) -> Hash {
     // Proof information by proving the specified ELF binary.
     // This struct contains the receipt along with statistics about execution of the guest
     let session_info = prover
-        .execute(env, &program_blob.content)
+        .execute(env, &program_blob.bytes)
         .expect("execution failed");
 
-    let stdout_blob = Blob {
-        content: stdout_buffer,
+    let output_blob = Blob {
+        bytes: output_buffer,
     };
-    let stdout_hash = store.add_blob(stdout_blob);
+    let output_ref = store.add_blob(output_blob);
 
     assert_eq!(
         session_info.journal.bytes,
-        [stdin_hash, stdout_hash].concat()
+        [input_ref.hash, output_ref.hash].concat()
     );
-    store.add_output_trusted(node_hash, &stdout_hash);
+    store.add_output_trusted(node_ref, &output_ref);
 
     //let image_id = compute_image_id(&program)?;
     //prove_info.receipt.verify(image_id).map_err(anyhow::Error::new)?;
-    stdout_hash
+    output_ref
 }

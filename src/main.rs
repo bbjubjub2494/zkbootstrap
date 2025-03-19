@@ -19,18 +19,18 @@ fn main() -> anyhow::Result<()> {
     };
 
     let mut store = InMemoryStore::new();
-    let program_hash = store.add_blob(Blob { content: program });
-    let stdin_hash = store.add_blob(Blob { content: stdin });
-    let node_hash = store.add_node(&Node {
-        program: BlobReference(program_hash),
-        stdin: BlobReference(stdin_hash),
+    let program_ref = store.add_blob(Blob { bytes: program });
+    let stdin_ref = store.add_blob(Blob { bytes: stdin });
+    let node_ref = store.add_node(&Node {
+        program: program_ref.into(),
+        input: stdin_ref.into(),
     });
 
-    let output_hash = reexecute(&mut store, &node_hash);
+    let output_hash = reexecute(&mut store, &node_ref);
 
-    let output_blob = resolve_blob(&store, &BlobReference(output_hash));
+    let output_blob = store.get_blob(output_hash).unwrap();
 
-    std::io::stdout().write_all(&output_blob.content)?;
+    std::io::stdout().write_all(&output_blob.bytes)?;
 
     Ok(())
 }
