@@ -199,6 +199,7 @@ void j_finalize_and_halt() {
 	memcpy(journal_buf + DIGEST_BYTES, sha_state_stdout, DIGEST_BYTES);
 	write(3, journal_buf, DIGEST_BYTES*2);
 	sha_compress(sha_state_journal, journal_buf, 1);
+	memzero(journal_buf, 128);
 	sha_finalize(sha_state_journal, journal_buf, DIGEST_BYTES*2);
 
 	sha_reset(sha_state_rzoutput);
