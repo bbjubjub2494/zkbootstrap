@@ -100,8 +100,8 @@ void sha_reset(unsigned *sha_state) {
 
 void sha_finalize(unsigned *sha_state, char *last_block, unsigned total_bytes) {
 	// requirement: sha_state must be a sha256 internal state
-	// requirement: last_block must be aligned and 32-byte
-	// requirement: there must be a 32-byte zeroed scratch space behind the last block
+	// requirement: last_block must be aligned and 64-byte
+	// requirement: there must be a 64-byte zeroed scratch space behind the last block
 	unsigned bitlenpos = 56;
 	unsigned block_count = 1;
 	if ((total_bytes % 64) >= bitlenpos) {
@@ -186,33 +186,30 @@ void putchar(char c) {
 	stdout_offset += 1;
 }
 
-char buf[128];
+char journal_buf[128];
+char rzdigest_buf[128];
 
 void j_finalize_and_halt() {
 	sha_finalize(sha_state_stdin, buf_stdin, stdin_offset);
 	write(1, buf_stdout, stdout_offset % 64);
 	sha_finalize(sha_state_stdout, buf_stdout, stdin_offset);
 
-	write(3, sha_state_stdin, DIGEST_BYTES);
-	write(3, sha_state_stdout, DIGEST_BYTES);
-
 	sha_reset(sha_state_journal);
-	memzero(buf, 128);
-	memcpy(buf, sha_state_stdin, DIGEST_BYTES);
-	memcpy(buf + DIGEST_BYTES, sha_state_stdout, DIGEST_BYTES);
-	sha_compress(sha_state_journal, buf, 1);
-	memzero(buf, 128);
-	sha_finalize(sha_state_journal, buf, DIGEST_BYTES*2);
+	memcpy(journal_buf, sha_state_stdin, DIGEST_BYTES);
+	memcpy(journal_buf + DIGEST_BYTES, sha_state_stdout, DIGEST_BYTES);
+	write(3, journal_buf, DIGEST_BYTES*2);
+	sha_compress(sha_state_journal, journal_buf, 1);
+	sha_finalize(sha_state_journal, journal_buf, DIGEST_BYTES*2);
 
 	sha_reset(sha_state_rzoutput);
-	memzero(buf, 128);
-	memcpy(buf, "w\xea\xfe\xb3f\xa7\x8bGt}\xe0\xd7\xbb\x17b\x84\x08_\xf5VH\x87\x00\x9a[\xe6=\xa3-5Y\xd4", DIGEST_BYTES); // sha2("risc0.Output")
-	memcpy(buf + DIGEST_BYTES, sha_state_journal, DIGEST_BYTES);
-	sha_compress(sha_state_rzoutput, buf, 1);
-	memzero(buf, 128);
+	memcpy(rzdigest_buf, "w\xea\xfe\xb3f\xa7\x8bGt}\xe0\xd7\xbb\x17b\x84\x08_\xf5VH\x87\x00\x9a[\xe6=\xa3-5Y\xd4", DIGEST_BYTES); // sha2("risc0.Output")
+	memcpy(rzdigest_buf + DIGEST_BYTES, sha_state_journal, DIGEST_BYTES);
+	sha_compress(sha_state_rzoutput, rzdigest_buf, 1);
+	memzero(rzdigest_buf, 128);
 	// 32 zero bytes for empty assumption logs
-	buf[DIGEST_BYTES] = 2; // end with little-endian 16-bit 2
-	sha_finalize(sha_state_rzoutput, buf, DIGEST_BYTES*3 + 2);
+	rzdigest_buf[DIGEST_BYTES] = 2; // end with little-endian 16-bit 2
+	rzdigest_buf[DIGEST_BYTES+1] = 0; // end with little-endian 16-bit 2
+	sha_finalize(sha_state_rzoutput, rzdigest_buf, DIGEST_BYTES*3 + 2);
 
 	halt(0, sha_state_rzoutput);
 }
