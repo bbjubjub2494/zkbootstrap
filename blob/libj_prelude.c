@@ -12,6 +12,24 @@
 #define BLOCK_BYTES 64
 
 
+void *memcpy(char *dest, char *src, unsigned n) {
+	unsigned i = 0;
+	while (i < n) {
+		dest[i] = src[i];
+		i+=1;
+	}
+	return dest;
+}
+
+void *memzero(char *buf, unsigned n) {
+	unsigned i = 0;
+	while (i < n) {
+		buf[i] = 0;
+		i+=1;
+	}
+	return buf;
+}
+
 int syscall3(int ecall_type, void *dst, int dst_len_in_words, int, int, int) {
 		asm(
 	    "rd_t0 rs1_sp !20 lw"
@@ -119,6 +137,14 @@ unsigned sha_state_rzoutput[DIGEST_WORDS];
 char buf_stdin[128];
 unsigned stdin_offset = 0;
 unsigned stdin_end = 0;
+char buf_stdout[128];
+unsigned stdout_offset = 0;
+
+
+void j_prepare() {
+	sha_reset(sha_state_stdin);
+	sha_reset(sha_state_stdout);
+}
 
 char load_char_unaligned(char *ptr) {
 	// needed because the M2 compiler generates unaligned lw, which risc0 doesnt like.
@@ -144,13 +170,10 @@ int getchar() {
 		return -1;
 	}
 		char c = load_char_unaligned(buf_stdin + (stdin_offset % 64));
-		//char c = buf_stdin[stdin_offset % 64];
 	stdin_offset += 1;
 	return c;
 }
 
-char buf_stdout[128];
-unsigned stdout_offset = 0;
 void putchar(char c) {
 	if (stdout_offset % 64 == 0) {
 		// hash and output unless the buffer is empty
@@ -163,51 +186,16 @@ void putchar(char c) {
 	stdout_offset += 1;
 }
 
-void stdin_finalize() {
-	sha_finalize(sha_state_stdin, buf_stdin, stdin_offset);
-}
-
-void stdout_finalize() {
-	write(1, buf_stdout, stdout_offset % 64);
-	sha_finalize(sha_state_stdout, buf_stdout, stdin_offset);
-}
-
 char buf[128];
 
-// FIXME something weird with the registers breaks stack variables
-unsigned len;
-unsigned total_bytes;
-unsigned nbytes;
+void j_finalize_and_halt() {
+	sha_finalize(sha_state_stdin, buf_stdin, stdin_offset);
+	write(1, buf_stdout, stdout_offset % 64);
+	sha_finalize(sha_state_stdout, buf_stdout, stdin_offset);
 
-void *memcpy(char *dest, char *src, unsigned n) {
-	unsigned i = 0;
-	while (i < n) {
-		dest[i] = src[i];
-		i+=1;
-	}
-	return dest;
-}
-
-void *memzero(char *buf, unsigned n) {
-	unsigned i = 0;
-	while (i < n) {
-		buf[i] = 0;
-		i+=1;
-	}
-	return buf;
-}
-
-int c; // FIXME stack variables broken for some reason
-int main() {
-	sha_reset(sha_state_stdin);
-	sha_reset(sha_state_stdout);
-	while ((c = getchar()) >= 0)
-		putchar(c);
-
-	stdin_finalize();
-	stdout_finalize();
 	write(3, sha_state_stdin, DIGEST_BYTES);
 	write(3, sha_state_stdout, DIGEST_BYTES);
+
 	sha_reset(sha_state_journal);
 	memzero(buf, 128);
 	memcpy(buf, sha_state_stdin, DIGEST_BYTES);
