@@ -114,7 +114,7 @@ pub fn resolve_blob<'a>(store: &'a InMemoryStore, r: &BlobOrOutputRef) -> (BlobR
     (r, store.blobs.get(&r).expect("blob unavailable"))
 }
 
-use risc0_zkvm::{compute_image_id, default_prover, Executor, ExecutorEnv, LocalProver};
+use risc0_zkvm::{compute_image_id, default_prover, Executor, ExecutorEnv, LocalProver, Receipt};
 
 pub fn reexecute(store: &mut InMemoryStore, node_ref: &NodeRef) -> BlobRef {
     let node = store.nodes.get(node_ref).expect("node unavailable");
@@ -151,4 +151,55 @@ pub fn reexecute(store: &mut InMemoryStore, node_ref: &NodeRef) -> BlobRef {
     //let image_id = compute_image_id(&program)?;
     //prove_info.receipt.verify(image_id).map_err(anyhow::Error::new)?;
     output_ref
+}
+
+pub fn prove(store: &mut InMemoryStore, node_ref: &NodeRef) -> (BlobRef, Receipt) {
+    let node = store.nodes.get(node_ref).expect("node unavailable");
+    let (_, program_blob) = resolve_blob(store, &node.program);
+    let (input_ref, input_blob) = resolve_blob(store, &node.input);
+    let mut output_buffer = vec![];
+
+    let env = ExecutorEnv::builder()
+        .stdin(input_blob.bytes.as_slice())
+        .stdout(&mut output_buffer)
+        .stderr(std::io::stderr())
+        .build()
+        .unwrap();
+
+    // Obtain the default prover.
+    let prover = default_prover();
+
+    // Proof information by proving the specified ELF binary.
+    // This struct contains the receipt along with statistics about execution of the guest
+    let prove_info = prover
+        .prove(env, &program_blob.bytes)
+        .expect("execution failed");
+
+    let output_blob = Blob {
+        bytes: output_buffer,
+    };
+    let output_ref = store.add_blob(output_blob);
+
+    assert_eq!(
+        prove_info.receipt.journal.bytes,
+        [input_ref.hash, output_ref.hash].concat()
+    );
+    store.add_output_trusted(node_ref, &output_ref);
+
+    (output_ref, prove_info.receipt)
+}
+
+pub fn verify(store: &mut InMemoryStore, node_ref: &NodeRef, output_ref: &BlobRef, receipt: Receipt) {
+    let node = store.nodes.get(node_ref).expect("node unavailable");
+    let (_, program_blob) = resolve_blob(store, &node.program);
+    let (input_ref, _) = resolve_blob(store, &node.input);
+
+    let image_id = compute_image_id(&program_blob.bytes).unwrap();
+    receipt.verify(image_id).unwrap();
+
+    assert_eq!(
+        receipt.journal.bytes,
+        [input_ref.hash, output_ref.hash].concat()
+    );
+    store.add_output_trusted(node_ref, &output_ref);
 }
