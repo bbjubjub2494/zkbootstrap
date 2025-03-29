@@ -1162,6 +1162,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "methods"
+version = "0.1.0"
+dependencies = [
+ "risc0-build",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2908,6 +2915,7 @@ name = "zkbootstrap"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "methods",
  "risc0-zkvm",
  "serde",
  "sha2",

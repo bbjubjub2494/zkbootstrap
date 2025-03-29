@@ -4,13 +4,16 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::time::Instant;
 
+fn slurp(path: &str) -> anyhow::Result<Vec<u8>> {
+  let mut buf = vec![];
+  let mut f = File::open(path)?;
+  f.read_to_end(&mut buf)?;
+  Ok(buf)
+}
+
+
 fn main() -> anyhow::Result<()> {
-    let program = {
-        let mut buf = vec![];
-        let mut f = File::open(std::env::args().nth(1).unwrap())?;
-        f.read_to_end(&mut buf)?;
-        buf
-    };
+    let program = slurp(std::env::args().nth(1).unwrap().as_str())?;
 
     let stdin = {
         let mut buf = vec![];
