@@ -19,7 +19,7 @@ pub fn test_jcat() -> Result<()> {
 
 #[test]
 pub fn test_jcat_reference() -> Result<()> {
-    let program = methods::STAGE0_ELF;
+    let program = methods::JCAT_ELF;
     // NOTE: bug in the reference code: it pads the input with zeroes up to a multiple of 4 bytes
     let input_bytes = b"hello\0\0\0";
     let output_bytes = execute(program, input_bytes, None::<&mut std::io::Stderr>)?;
