@@ -30,14 +30,13 @@ fn main() -> anyhow::Result<()> {
         input: stdin_ref.into(),
     });
 
-    // let output_ref = reexecute(&mut store, &node_ref);
     let prove_start = Instant::now();
-    let (output_ref, receipt) = prove(&mut store, &node_ref);
+    let (output_ref, receipt) = store.prove(&node_ref, Some(&mut std::io::stderr()))?;
     let elapsed_time = prove_start.elapsed();
     eprintln!("Generated a proof in {} secs", elapsed_time.as_secs());
 
     let verify_start = Instant::now();
-    verify(&mut store, &node_ref, &output_ref, receipt);
+    store.verify(&node_ref, &output_ref, receipt)?;
     let elapsed_time = verify_start.elapsed();
     eprintln!("Verified proof in {} secs", elapsed_time.as_secs());
 
