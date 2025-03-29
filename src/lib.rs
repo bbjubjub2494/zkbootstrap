@@ -114,7 +114,7 @@ pub fn resolve_blob<'a>(store: &'a InMemoryStore, r: &BlobOrOutputRef) -> (BlobR
     (r, store.blobs.get(&r).expect("blob unavailable"))
 }
 
-use risc0_zkvm::{compute_image_id, default_prover, Executor, ExecutorEnv, LocalProver, Receipt};
+use risc0_zkvm::{compute_image_id, default_executor, default_prover, ExecutorEnv, Receipt};
 
 pub fn reexecute(store: &mut InMemoryStore, node_ref: &NodeRef) -> BlobRef {
     let node = store.nodes.get(node_ref).expect("node unavailable");
@@ -128,12 +128,12 @@ pub fn reexecute(store: &mut InMemoryStore, node_ref: &NodeRef) -> BlobRef {
         .build()
         .unwrap();
 
-    // Obtain the default prover.
-    let prover = LocalProver::new("local");
+    // Obtain a prover with the Executor interface
+    let executor = default_executor();
 
     // Proof information by proving the specified ELF binary.
     // This struct contains the receipt along with statistics about execution of the guest
-    let session_info = prover
+    let session_info = executor
         .execute(env, &program_blob.bytes)
         .expect("execution failed");
 
