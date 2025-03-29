@@ -2977,6 +2977,7 @@ name = "zkbootstrap"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "hex",
  "methods",
  "risc0-zkvm",
  "rust-embed",

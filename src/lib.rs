@@ -92,46 +92,63 @@ impl InMemoryStore {
         }
     }
 
-pub fn reexecute(self: &mut Self, node_ref: &NodeRef, stderr: Option<&mut impl Write>) -> Result<BlobRef> {
-    let node = self.nodes.get(node_ref).expect("node unavailable");
-    let (_, program_blob) = self.resolve_blob(&node.program);
-    let (_, input_blob) = self.resolve_blob(&node.input);
+    pub fn reexecute(
+        self: &mut Self,
+        node_ref: &NodeRef,
+        stderr: Option<&mut impl Write>,
+    ) -> Result<BlobRef> {
+        let node = self.nodes.get(node_ref).expect("node unavailable");
+        let (_, program_blob) = self.resolve_blob(&node.program);
+        let (_, input_blob) = self.resolve_blob(&node.input);
 
-    let output_bytes = execute(&program_blob.bytes, &input_blob.bytes, stderr)?;
+        let output_bytes = execute(&program_blob.bytes, &input_blob.bytes, stderr)?;
 
-    let output_blob = Blob { bytes: output_bytes };
-    let output_ref = self.add_blob(output_blob);
+        let output_blob = Blob {
+            bytes: output_bytes,
+        };
+        let output_ref = self.add_blob(output_blob);
 
-    self.add_output_trusted(node_ref, &output_ref);
-    Ok(output_ref)
-}
+        self.add_output_trusted(node_ref, &output_ref);
+        Ok(output_ref)
+    }
 
-pub fn prove(self: &mut Self, node_ref: &NodeRef, stderr: Option<&mut impl Write>) -> Result<(BlobRef, Receipt)> {
-    let node = self.nodes.get(node_ref).expect("node unavailable");
-    let (_, program_blob) = self.resolve_blob(&node.program);
-    let (_, input_blob) = self.resolve_blob(&node.input);
+    pub fn prove(
+        self: &mut Self,
+        node_ref: &NodeRef,
+        stderr: Option<&mut impl Write>,
+    ) -> Result<(BlobRef, Receipt)> {
+        let node = self.nodes.get(node_ref).expect("node unavailable");
+        let (_, program_blob) = self.resolve_blob(&node.program);
+        let (_, input_blob) = self.resolve_blob(&node.input);
 
-    let (output_bytes, receipt) = prove(&program_blob.bytes, &input_blob.bytes, stderr)?;
+        let (output_bytes, receipt) = prove(&program_blob.bytes, &input_blob.bytes, stderr)?;
 
-    let output_blob = Blob { bytes: output_bytes };
-    let output_ref = self.add_blob(output_blob);
+        let output_blob = Blob {
+            bytes: output_bytes,
+        };
+        let output_ref = self.add_blob(output_blob);
 
-    self.add_output_trusted(node_ref, &output_ref);
-    Ok((output_ref, receipt))
-}
+        self.add_output_trusted(node_ref, &output_ref);
+        Ok((output_ref, receipt))
+    }
 
-pub fn verify(self: &mut Self, node_ref: &NodeRef, output_ref: &BlobRef, receipt: Receipt) -> Result<()> {
-    let node = self.nodes.get(node_ref).expect("node unavailable");
-    let (_, program_blob) = self.resolve_blob(&node.program);
-    let (input_ref, _) = self.resolve_blob(&node.input);
+    pub fn verify(
+        self: &mut Self,
+        node_ref: &NodeRef,
+        output_ref: &BlobRef,
+        receipt: Receipt,
+    ) -> Result<()> {
+        let node = self.nodes.get(node_ref).expect("node unavailable");
+        let (_, program_blob) = self.resolve_blob(&node.program);
+        let (input_ref, _) = self.resolve_blob(&node.input);
 
-    let image_id = compute_image_id(&program_blob.bytes).unwrap();
-    receipt.verify(image_id).unwrap();
+        let image_id = compute_image_id(&program_blob.bytes).unwrap();
+        receipt.verify(image_id).unwrap();
 
-    check_journal_consistency(&receipt, &input_ref.hash, &output_ref.hash)?;
-    self.add_output_trusted(node_ref, &output_ref);
-    Ok(())
-}
+        check_journal_consistency(&receipt.journal, &input_ref.hash, &output_ref.hash)?;
+        self.add_output_trusted(node_ref, &output_ref);
+        Ok(())
+    }
 
     pub fn add_node(&mut self, node: &Node) -> NodeRef {
         let r = node.compute_ref();
@@ -150,18 +167,24 @@ pub fn verify(self: &mut Self, node_ref: &NodeRef, output_ref: &BlobRef, receipt
         self.outputs.insert(*node, *output);
     }
 
-pub fn resolve_blob<'a>(self: &'a Self, r: &BlobOrOutputRef) -> (BlobRef, &'a Blob) {
-    let r = match r {
-        BlobOrOutputRef::OutputRef(r) => *self.outputs.get(r).expect("output unavailable"),
-        BlobOrOutputRef::BlobRef(r) => *r,
-    };
-    (r, self.blobs.get(&r).expect("blob unavailable"))
-}
+    pub fn resolve_blob<'a>(self: &'a Self, r: &BlobOrOutputRef) -> (BlobRef, &'a Blob) {
+        let r = match r {
+            BlobOrOutputRef::OutputRef(r) => *self.outputs.get(r).expect("output unavailable"),
+            BlobOrOutputRef::BlobRef(r) => *r,
+        };
+        (r, self.blobs.get(&r).expect("blob unavailable"))
+    }
 }
 
-use risc0_zkvm::{compute_image_id, default_executor, default_prover, ExecutorEnv, Receipt};
+use risc0_zkvm::{
+    compute_image_id, default_executor, default_prover, ExecutorEnv, Journal, Receipt,
+};
 
-pub fn execute(program_bytes: &[u8], input_bytes: &[u8], stderr: Option<&mut impl Write>) -> Result<Vec<u8>> {
+pub fn execute(
+    program_bytes: &[u8],
+    input_bytes: &[u8],
+    stderr: Option<&mut impl Write>,
+) -> Result<Vec<u8>> {
     let mut output_buffer = vec![];
 
     let env = build_executor_env(input_bytes, &mut output_buffer, stderr)?;
@@ -172,15 +195,20 @@ pub fn execute(program_bytes: &[u8], input_bytes: &[u8], stderr: Option<&mut imp
 
     let output_bytes = output_buffer;
 
-    // check journal consistency
-    if session_info.journal.bytes != [Sha256::digest(input_bytes), Sha256::digest(&output_bytes)].concat() {
-        anyhow::bail!("journal mismatch");
-    }
+    check_journal_consistency(
+        &session_info.journal,
+        &Sha256::digest(input_bytes).into(),
+        &Sha256::digest(&output_bytes).into(),
+    )?;
 
     Ok(output_bytes)
 }
 
-pub fn prove(program_bytes: &[u8], input_bytes: &[u8], stderr: Option<&mut impl Write>) -> Result<(Vec<u8>, Receipt)> {
+pub fn prove(
+    program_bytes: &[u8],
+    input_bytes: &[u8],
+    stderr: Option<&mut impl Write>,
+) -> Result<(Vec<u8>, Receipt)> {
     let mut output_buffer = vec![];
 
     let env = build_executor_env(input_bytes, &mut output_buffer, stderr)?;
@@ -192,12 +220,20 @@ pub fn prove(program_bytes: &[u8], input_bytes: &[u8], stderr: Option<&mut impl 
 
     let output_bytes = output_buffer;
 
-    check_journal_consistency(&prove_info.receipt, &Sha256::digest(input_bytes).into(), &Sha256::digest(&output_bytes).into())?;
+    check_journal_consistency(
+        &prove_info.receipt.journal,
+        &Sha256::digest(input_bytes).into(),
+        &Sha256::digest(&output_bytes).into(),
+    )?;
 
     Ok((output_bytes, prove_info.receipt))
 }
 
-pub fn build_executor_env<'a>(input_bytes: &'a [u8], output_buffer: &'a mut Vec<u8>, stderr: Option<&'a mut impl Write>) -> Result<ExecutorEnv<'a>> {
+pub fn build_executor_env<'a>(
+    input_bytes: &'a [u8],
+    output_buffer: &'a mut Vec<u8>,
+    stderr: Option<&'a mut impl Write>,
+) -> Result<ExecutorEnv<'a>> {
     let mut builder = ExecutorEnv::builder();
     builder.stdin(input_bytes);
     builder.stdout(output_buffer);
@@ -207,9 +243,19 @@ pub fn build_executor_env<'a>(input_bytes: &'a [u8], output_buffer: &'a mut Vec<
     builder.build()
 }
 
-pub fn check_journal_consistency(receipt: &Receipt, input_hash: &[u8; 32], output_hash: &[u8; 32]) -> Result<()> {
-    if receipt.journal.bytes != [*input_hash, *output_hash].concat() {
-        anyhow::bail!("journal mismatch");
+pub fn check_journal_consistency(
+    journal: &Journal,
+    input_hash: &[u8; 32],
+    output_hash: &[u8; 32],
+) -> Result<()> {
+    let expected = [*input_hash, *output_hash].concat();
+    let actual = &journal.bytes;
+    if actual != &expected {
+        anyhow::bail!(format!(
+            "journal mismatch\nactual = {}\nexpected = {}",
+            hex::encode(actual),
+            hex::encode(&expected)
+        ));
     }
     Ok(())
 }
