@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = https://github.com/oriansj/stage0-posix-riscv32
+	branch = master
+	commit = c8dcef85346bba64a16b41b9ce4937318ff9f7c3
+	parent = bf1d1805e2b98bcaee250986e79dd705b9c40e09
+	method = merge
+	cmdver = 0.4.9
