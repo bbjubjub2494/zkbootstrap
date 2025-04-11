@@ -1,3 +1,6 @@
 derived:
-  M2-Mesoplanet -A riscv32 -f libj_prelude.c -f jcat.c -o derived/jcat
+  #M2-Mesoplanet -A riscv32 -f libj_prelude.c -f jcat.c -o derived/jcat
   M2-Mesoplanet -A riscv32 -f libj_prelude.c -f jhex.c -o derived/jhex
+
+  M1 --architecture riscv32 --little-endian -f ./M2libc/riscv32/riscv32_defs.M1 -f jcat.M1 -o derived/jcat.hex2
+  hex2 --file ./M2libc/riscv32/ELF-riscv32.hex2 --file derived/jcat.hex2 --output derived/jcat --architecture riscv32 --base-address 0x600000 --little-endian 

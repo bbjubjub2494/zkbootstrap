@@ -1,0 +1,90 @@
+:_start
+    rd_sp ~0x200400 lui            ; zkvm-specific per risc0/zkvm/platform/src/memory.rs
+    rd_sp rs1_sp !0x200400 addi
+
+    rd_t2 rs1_sp !-1000 addi # allocate buffer
+    rd_sp rs1_sp !-1004 addi
+    rd_t0 !2 addi # `ecall::SOFTWARE`
+    rd_a0 rs1_t2 mv
+    rd_a1 !125 addi         # syscall buffer length in words
+    rd_a2 ~sys_read auipc  # Set syscall name C string
+    rd_a2 rs1_a2 !sys_read addi
+    rd_a3 !0 addi          # Set file to `STDIN_FILENO`
+    rd_a4 rs1_t2 mv
+    rd_a5 !1000 addi         # Set read length
+    ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
+    rd_t1 rs1_a0 mv # return value
+
+    rd_t0 !2 addi # `ecall::SOFTWARE`
+    rd_a0 !0 addi         # syscall buffer pointer
+    rd_a1 !0 addi         # syscall buffer length in words
+    rd_a2 ~sys_write auipc  # Set syscall name C string
+    rd_a2 rs1_a2 !sys_write addi
+    rd_a3 !1 addi          # Set file to `STDOUT_FILENO`
+    rd_a4 rs1_t2 mv
+    rd_a5 rs1_t1 mv         # Set write length
+    ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
+
+    rd_s0 rs1_sp !-64 addi # allocate one 512-bit block
+    rd_sp rs1_sp !-68 addi
+    rd_t1 !0x80 addi # first bit after message set to 1
+    rs1_s0 rs2_t1 sw 
+
+    # just compute sha2("") for now
+    rd_t0 !3 addi # `ecall::SHA`
+    rd_a0 ~digest auipc # input sha state
+    rd_a0 rs1_a0 !digest addi
+    rd_a1 rs1_a0 addi # output sha state (reuse input)
+    rd_a2 rs1_s0 addi # block
+    rd_a3 rs1_a2 !32 addi
+    rd_a4 !1 addi # block count
+    ecall
+ 
+    # write sha2("") to journal for input
+    rd_t0 !2 addi # `ecall::SOFTWARE`
+    rd_a0 !0 mv
+    rd_a1 !0 mv
+    rd_a2 ~sys_write auipc  # Set syscall name C string
+    rd_a2 rs1_a2 !sys_write addi
+    rd_a3 !3 addi          # journal filedescriptor
+    rd_a4 ~digest auipc # write sha state to journal
+    rd_a4 rs1_a4 !digest addi
+    rd_a5 !32 addi
+    ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
+ 
+    # write sha2("") again to journal for output
+    rd_t0 !2 addi # `ecall::SOFTWARE`
+    rd_a0 !0 mv
+    rd_a1 !0 mv
+    rd_a2 ~sys_write auipc  # Set syscall name C string
+    rd_a2 rs1_a2 !sys_write addi
+    rd_a3 !3 addi          # journal filedescriptor
+    rd_a4 ~digest auipc # write sha state to journal
+    rd_a4 rs1_a4 !digest addi
+    rd_a5 !32 addi
+    ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
+
+    # Halt syscall to terminate.
+    rd_t0 !0 addi    # `ecall::HALT`
+    rd_a0 !0 addi    # `halt::TERMINATE` with 0 exit code
+    rd_a1 ~empty_journal_digest auipc    # Set output digest
+    rd_a1 rs1_a1 !empty_journal_digest addi
+    ecall                 # `ecall(t0, a0, a1)`
+    ret             # unreachable, just for disassemblers
+
+:empty_journal_digest
+    '836f175c62c0f353831665427e8b0b34f6d1d21902764daeb406c6b83db575b0'
+
+DEFINE sha256_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5be0cd19'
+:digest
+sha256_init
+
+#
+## Null-terminated `read` syscall name
+:sys_read
+    "risc0_zkvm_platform::syscall::nr::SYS_READ"
+
+:sys_write
+    "risc0_zkvm_platform::syscall::nr::SYS_WRITE"
+
+:ELF_end
