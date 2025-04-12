@@ -17,6 +17,79 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
 
     :end_loop
 
+    ; finalize stdin hashing
+    ;; add terminating bit
+    rd_t2 ~stdin_buffer auipc
+    rd_t2 rs1_t2 !stdin_buffer addi
+    rd_t3 rs1_s6 !63 andi
+    rd_t2 rs1_t2 rs2_t3 add # t2 = &stdin_buffer[s6 % 64]
+    rd_t3 !0x80 mv
+    rs1_t2 rs2_t3 sb
+
+    ;; insert total length in bits
+    ;; TODO handle len % 64 >= 56
+    rd_t2 ~stdin_buffer auipc
+    rd_t2 rs1_t2 !stdin_buffer addi
+    rd_t3 rs1_s6 !3 slli # number of bits
+    rd_t2 rs1_t2 !63 addi
+    rs1_t2 rs2_t3 sb
+    rd_t2 rs1_t2 !-1 addi
+    rd_t3 rs1_t3 srli !8
+    rs1_t2 rs2_t3 sb
+    rd_t2 rs1_t2 !-1 addi
+    rd_t3 rs1_t3 srli !8
+    rs1_t2 rs2_t3 sb
+    rd_t2 rs1_t2 !-1 addi
+    rd_t3 rs1_t3 srli !8
+    rs1_t2 rs2_t3 sb
+
+    rd_t2 ~stdin_sha_state auipc
+    rd_t2 rs1_t2 !stdin_sha_state addi
+    rd_t0 !2 addi # `ecall::SOFTWARE`
+    rd_a0 !0 mv
+    rd_a1 !0 addi         # syscall buffer length in words
+    rd_a2 ~sys_write auipc  # Set syscall name C string
+    rd_a2 rs1_a2 !sys_write addi
+    rd_a3 !1 mv          # file descriptor
+    rd_a4 rs1_t2 mv
+    rd_a5 !32 mv         # Set read length
+    ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
+
+    rd_t2 ~stdin_buffer auipc
+    rd_t2 rs1_t2 !stdin_buffer addi
+    rd_t0 !2 addi # `ecall::SOFTWARE`
+    rd_a0 !0 mv
+    rd_a1 !0 addi         # syscall buffer length in words
+    rd_a2 ~sys_write auipc  # Set syscall name C string
+    rd_a2 rs1_a2 !sys_write addi
+    rd_a3 !1 mv          # file descriptor
+    rd_a4 rs1_t2 mv
+    rd_a5 !64 mv         # Set read length
+    ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
+
+    rd_t2 ~stdin_buffer auipc
+    rd_t2 rs1_t2 !stdin_buffer addi
+    rd_t0 !3 mv # `ecall::SHA`
+    rd_a0 ~stdin_sha_state auipc # input sha state
+    rd_a0 rs1_a0 !stdin_sha_state addi
+    rd_a1 rs1_a0 mv # output sha state (= input)
+    rd_a2 rs1_t2 mv # buffer
+    rd_a3 rs1_a2 !32 addi
+    rd_a4 !1 mv # block count
+    ecall
+
+    rd_t2 ~stdin_sha_state auipc
+    rd_t2 rs1_t2 !stdin_sha_state addi
+    rd_t0 !2 addi # `ecall::SOFTWARE`
+    rd_a0 rs1_t2 mv
+    rd_a1 !8 addi         # syscall buffer length in words
+    rd_a2 ~sys_write auipc  # Set syscall name C string
+    rd_a2 rs1_a2 !sys_write addi
+    rd_a3 !3 mv          # file descriptor
+    rd_a4 rs1_t2 mv
+    rd_a5 !32 mv         # Set length
+    ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
+
     # Halt syscall to terminate.
     rd_t0 !0 addi    # `ecall::HALT`
     rd_a0 !0 addi    # `halt::TERMINATE` with 0 exit code
@@ -84,7 +157,6 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
 :putchar
     nop
     # (eventually) put (char)a0 onto stdout
-    # TODO
     rd_t2 rs1_sp !-4 addi
     rs1_t2 rs2_a0 sb
 
