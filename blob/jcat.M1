@@ -43,30 +43,6 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
     rd_t3 rs1_t3 srli !8
     rs1_t2 rs2_t3 sb
 
-    rd_t2 ~stdin_sha_state auipc
-    rd_t2 rs1_t2 !stdin_sha_state addi
-    rd_t0 !2 addi # `ecall::SOFTWARE`
-    rd_a0 !0 mv
-    rd_a1 !0 addi         # syscall buffer length in words
-    rd_a2 ~sys_write auipc  # Set syscall name C string
-    rd_a2 rs1_a2 !sys_write addi
-    rd_a3 !1 mv          # file descriptor
-    rd_a4 rs1_t2 mv
-    rd_a5 !32 mv         # Set read length
-    ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
-
-    rd_t2 ~stdin_buffer auipc
-    rd_t2 rs1_t2 !stdin_buffer addi
-    rd_t0 !2 addi # `ecall::SOFTWARE`
-    rd_a0 !0 mv
-    rd_a1 !0 addi         # syscall buffer length in words
-    rd_a2 ~sys_write auipc  # Set syscall name C string
-    rd_a2 rs1_a2 !sys_write addi
-    rd_a3 !1 mv          # file descriptor
-    rd_a4 rs1_t2 mv
-    rd_a5 !64 mv         # Set read length
-    ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
-
     rd_t2 ~stdin_buffer auipc
     rd_t2 rs1_t2 !stdin_buffer addi
     rd_t0 !3 mv # `ecall::SHA`
@@ -77,6 +53,18 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
     rd_a3 rs1_a2 !32 addi
     rd_a4 !1 mv # block count
     ecall
+
+    rd_t2 ~stdin_sha_state auipc
+    rd_t2 rs1_t2 !stdin_sha_state addi
+    rd_t0 !2 addi # `ecall::SOFTWARE`
+    rd_a0 rs1_t2 mv
+    rd_a1 !8 addi         # syscall buffer length in words
+    rd_a2 ~sys_write auipc  # Set syscall name C string
+    rd_a2 rs1_a2 !sys_write addi
+    rd_a3 !3 mv          # file descriptor
+    rd_a4 rs1_t2 mv
+    rd_a5 !32 mv         # Set length
+    ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
 
     rd_t2 ~stdin_sha_state auipc
     rd_t2 rs1_t2 !stdin_sha_state addi
@@ -178,14 +166,6 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
 :empty_journal_digest
     '836f175c62c0f353831665427e8b0b34f6d1d21902764daeb406c6b83db575b0'
 
-#
-## Null-terminated `read` syscall name
-:sys_read
-    "risc0_zkvm_platform::syscall::nr::SYS_READ"
-
-:sys_write
-    "risc0_zkvm_platform::syscall::nr::SYS_WRITE"
-
 ## global variables
 
 :stdin_sha_state
@@ -197,5 +177,13 @@ NULL NULL NULL NULL
 NULL NULL NULL NULL
 NULL NULL NULL NULL
 NULL NULL NULL NULL
+
+#
+## Null-terminated `read` syscall name
+:sys_read
+    "risc0_zkvm_platform::syscall::nr::SYS_READ"
+
+:sys_write
+    "risc0_zkvm_platform::syscall::nr::SYS_WRITE"
 
 :ELF_end
