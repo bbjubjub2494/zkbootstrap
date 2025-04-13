@@ -233,11 +233,6 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
     ecall
     ret
 
-
-
-:empty_journal_digest
-    '836f175c62c0f353831665427e8b0b34f6d1d21902764daeb406c6b83db575b0'
-
 ## global variables
 
 :journal_bytes

@@ -19,21 +19,24 @@ fn hex1_source() -> Vec<u8> {
     Blobs::get("blob/stage0-posix-riscv32/hex1_riscv32.hex0").unwrap().data.to_vec()
 }
 
+static SAMPLES: &[&[u8]] = &[
+    b"",
+    b"hello",
+    b"testtesttesttest",
+    b"testtesttesttesttesttesttesttes", // 63 bytes
+    b"testtesttesttesttesttesttesttest", // 64 bytes (block boundary in sha2)
+    b"testtesttesttesttesttesttesttestt", // 65 bytes
+];
 #[test]
 pub fn test_jcat() -> Result<()> {
-    let output = execute(&jcat_program(), b"hello", None::<&mut std::io::Stderr>)?;
-    assert_eq!(output, b"hello");
-    Ok(())
-}
-
-#[test]
-pub fn test_jcat_reference() -> Result<()> {
-    let program = methods::JCAT_ELF;
-    // NOTE: the reference code pads the input with zeroes up to word boundary
-    // Is this a bug in this version of the risc0 stdlib?
-    let input_bytes = b"hello\0\0\0";
-    let output_bytes = execute(program, input_bytes, None::<&mut std::io::Stderr>)?;
-    assert_eq!(output_bytes, input_bytes);
+    for &sample in SAMPLES {
+        let output_bytes = execute(&jcat_program(), sample, None::<&mut std::io::Stderr>)?;
+        assert_eq!(output_bytes, sample);
+    }
+    for &sample in SAMPLES {
+        let (output_bytes, _) = prove(&jcat_program(), sample, None::<&mut std::io::Stderr>)?;
+        assert_eq!(output_bytes, sample);
+    }
     Ok(())
 }
 

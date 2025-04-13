@@ -195,8 +195,6 @@ pub fn execute(
 
     let output_bytes = output_buffer;
 
-    std::io::stdout().write_all(&output_bytes)?; // debug
-
     check_journal_consistency(
         &session_info.journal,
         &Sha256::digest(input_bytes).into(),
