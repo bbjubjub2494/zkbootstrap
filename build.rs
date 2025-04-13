@@ -5,20 +5,22 @@ fn main() {
     let m2libc_path = std::env::var("M2LIBC_PATH").unwrap();
     
     let arch_defs_path = "assets/riscv32_defs.M1";
-    let m1_path = "assets/jcat.M1";
+
+    for name in ["jhex0", "jcat"] {
+    let m1_path = format!("assets/{name}.M1");
     build::rerun_if_changed(arch_defs_path);
-    build::rerun_if_changed(m1_path);
+    build::rerun_if_changed(&m1_path);
 
     let mut hex2_path = build::out_dir();
-    hex2_path.push("jcat.hex2");
+    hex2_path.push(format!("{name}.hex2"));
     let mut out_path = build::out_dir();
-    out_path.push("jcat");
+    out_path.push(format!("{name}"));
 
     let r = std::process::Command::new("M1")
         .arg("--architecture").arg("riscv32")
         .arg("--little-endian")
         .arg("-f").arg(arch_defs_path)
-        .arg("-f").arg(m1_path)
+        .arg("-f").arg(&m1_path)
         .arg("-o").arg(&hex2_path)
         .status().expect("Failed to run M1");
     assert!(r.success(), "M1 failed");
@@ -32,4 +34,5 @@ fn main() {
         .stdout(File::create(out_path).unwrap())
         .status().expect("Failed to run hex2");
     assert!(r.success(), "hex2 failed");
+    }
 }
