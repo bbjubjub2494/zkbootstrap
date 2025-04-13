@@ -60,8 +60,8 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
     rd_t2 ~stdin_sha_state auipc
     rd_t2 rs1_t2 !stdin_sha_state addi
     rd_t0 !2 addi # `ecall::SOFTWARE`
-    rd_a0 rs1_t2 mv
-    rd_a1 !8 addi         # syscall buffer length in words
+    rd_a0 !0 mv
+    rd_a1 !0 mv
     rd_a2 ~sys_write auipc  # Set syscall name C string
     rd_a2 rs1_a2 !sys_write addi
     rd_a3 !3 mv          # file descriptor
@@ -69,12 +69,11 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
     rd_a5 !32 mv         # Set length
     ecall                 # `ecall(t0, a0, a1, a2, a3, a4, a5)`
 
-    # FIXME writes zeroes
     rd_t2 ~stdin_sha_state auipc
     rd_t2 rs1_t2 !stdin_sha_state addi
     rd_t0 !2 addi # `ecall::SOFTWARE`
-    rd_a0 rs1_t2 mv
-    rd_a1 !8 addi         # syscall buffer length in words
+    rd_a0 !0 mv
+    rd_a1 !0 mv
     rd_a2 ~sys_write auipc  # Set syscall name C string
     rd_a2 rs1_a2 !sys_write addi
     rd_a3 !3 mv          # file descriptor
