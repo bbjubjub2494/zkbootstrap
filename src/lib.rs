@@ -136,7 +136,7 @@ impl InMemoryStore {
         self: &mut Self,
         node_ref: &NodeRef,
         output_ref: &BlobRef,
-        receipt: Receipt,
+        receipt: &Receipt,
     ) -> Result<()> {
         let node = self.nodes.get(node_ref).expect("node unavailable");
         let (_, program_blob) = self.resolve_blob(&node.program);
@@ -216,9 +216,7 @@ pub fn prove(
     let env = build_executor_env(input_bytes, &mut output_buffer, stderr)?;
 
     let prover = default_prover();
-    let Ok(prove_info) = prover.prove(env, &program_bytes) else {
-        anyhow::bail!("execution failed");
-    };
+    let prove_info = prover.prove(env, &program_bytes)?;
 
     let output_bytes = output_buffer;
 
