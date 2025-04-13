@@ -4,7 +4,7 @@ pkgs.mkShell {
   packages = [ pkgs.rustup perSystem.self.rzup pkgs.mescc-tools pkgs.m2-planet pkgs.m2-mesoplanet pkgs.just ];
 
   # Add environment variables
-  env.RISC0_DEV_MODE = "1";
+  env.M2LIBC_PATH = "${pkgs.m2libc}/include/M2libc";
 
   # Load custom bash code
   shellHook = ''

@@ -257,3 +257,7 @@ pub fn check_journal_consistency(
     }
     Ok(())
 }
+
+pub fn jcat_program() -> &'static [u8] {
+    include_bytes!(concat!(env!("OUT_DIR"), "/jcat"))
+}
