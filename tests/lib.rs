@@ -53,21 +53,3 @@ pub fn test_jhex0_reference() -> Result<()> {
     assert_eq!(output_bytes, b"test\n");
     Ok(())
 }
-
-#[bench]
-fn bench_jhex0(b: &mut test::Bencher) {
-    let program = jhex0_program();
-    let input_bytes = hex1_source();
-    b.iter(|| {
-        let _ = execute(&program, &input_bytes, None::<&mut std::io::Stderr>);
-    });
-}
-
-#[bench]
-fn bench_jhex0_reference(b: &mut test::Bencher) {
-    let program = methods::JHEX0_ELF;
-    let input_bytes = hex1_source();
-    b.iter(|| {
-        let _ = execute(&program, &input_bytes, None::<&mut std::io::Stderr>);
-    });
-}
