@@ -4,6 +4,10 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::time::Instant;
 
+pub fn jhex0_program() -> &'static [u8] {
+    include_bytes!(concat!(env!("OUT_DIR"), "/jhex0"))
+}
+
 fn slurp(path: &str) -> anyhow::Result<Vec<u8>> {
     let mut buf = vec![];
     let mut f = File::open(path)?;
@@ -12,7 +16,7 @@ fn slurp(path: &str) -> anyhow::Result<Vec<u8>> {
 }
 
 fn main() -> anyhow::Result<()> {
-    let program = slurp(std::env::args().nth(1).unwrap().as_str())?;
+    let program = jhex0_program();
 
     let stdin = {
         let mut buf = vec![];
