@@ -1,11 +1,18 @@
 use zkbootstrap::*;
 
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::time::Instant;
+use std::borrow::Cow;
 
-pub fn jhex0_program() -> &'static [u8] {
-    include_bytes!(concat!(env!("OUT_DIR"), "/jhex0"))
+use rust_embed::Embed;
+
+#[derive(Embed)]
+#[folder = "$OUT_DIR"]
+struct Asset;
+
+pub fn jhex0_program() -> Cow<'static, [u8]> {
+    Asset::get("jhex0_program").unwrap().data
 }
 
 fn slurp(path: &str) -> anyhow::Result<Vec<u8>> {
@@ -26,7 +33,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     let mut store = InMemoryStore::new();
-    let program_ref = store.add_blob(Blob { bytes: program });
+    let program_ref = store.add_blob(Blob { bytes: program.to_vec() });
     let stdin_ref = store.add_blob(Blob { bytes: stdin });
     let node_ref = store.add_node(&Node {
         program: program_ref.into(),
