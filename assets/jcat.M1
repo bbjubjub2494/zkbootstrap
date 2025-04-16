@@ -1,10 +1,17 @@
 ; register use
-; s2: pointer to input buffer
-; s3: pointer to output buffer
-; s4-s5 reserved for hex0
-; s6: getchar counter
-; s7: total number of bytes read from stdin
-; s8: putchar counter
+; s2: pointer to input file handle
+; s3: pointer to output file handle
+; s4-s5 reserved for program logic
+
+; filehandle layout
+; [0;64) working buffer, size matches sha2 block
+; [64;128) used to store padding when finalizing a file
+; [128;132) current position within the file
+; [132;136) position of the next byte that will be read, unused for output files
+; [136;192) padding
+DEFINE fh_size 192
+DEFINE fh_pos_offset 128
+DEFINE fh_max_pos_offset 132
 
 DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5be0cd19'
 
@@ -13,10 +20,10 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
     rd_sp rs1_sp !0x200400 addi
 
     ; allocate buffers: 1 sha2 block working space + 1 block reserved for padding
-    rd_s2 rs1_sp !-128 addi
-    rd_sp rs1_sp !-128 addi
-    rd_s3 rs1_sp !-128 addi
-    rd_sp rs1_sp !-128 addi
+    rd_s2 rs1_sp !-192 addi
+    rd_sp rs1_sp !-192 addi
+    rd_s3 rs1_sp !-192 addi
+    rd_sp rs1_sp !-192 addi
 
     :loop
     rd_ra $getchar jal
@@ -34,21 +41,21 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
     rd_a2 rs1_a2 !sys_write addi
     rd_a3 !1 mv          ; file descriptor
     rd_a4 rs1_s3 mv
-    rd_a5 rs1_s8 !63 andi
+    rd_a5 rs1_s3 !128 lw
+    rd_a5 rs1_a5 !63 andi
     ecall                 ; `ecall(t0, a0, a1, a2, a3, a4, a5)'
 
-    ; assumption: getchar() returns EOF so the buffer contains up to 63 bytes of data
     rd_a0 ~stdin_sha_state auipc
     rd_a0 rs1_a0 !stdin_sha_state addi
     rd_a1 rs1_s2 mv
-    rd_a2 rs1_s6 mv
+    rd_a2 rs1_s2 !128 lw
     rd_ra $sha_finalize jal
 
     ; finalize output hash
     rd_a0 ~stdout_sha_state auipc
     rd_a0 rs1_a0 !stdout_sha_state addi
     rd_a1 rs1_s3 mv
-    rd_a2 rs1_s8 mv
+    rd_a2 rs1_s3 !128 lw
     rd_ra $sha_finalize jal
 
     ; write to journal
@@ -96,14 +103,16 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
 :getchar
     ; read 1 character from stdin into a0
 
-    rs1_s6 rs2_s7 @skip_read bne
-    rd_t0 rs1_s7 !63 andi
+    rd_t2 rs1_s2 !128 lw
+    rd_t3 rs1_s2 !132 lw
+    rs1_t2 rs2_t3 @skip_read bne
+    rd_t0 rs1_t3 !63 andi
     rs1_t0 @skip_read bnez
 
-    ; here s6 == s7 && s7 % 64 == 0
-    rs1_s7 @skip_compress beqz
+    ; here pos == max_pos && pos % 64 == 0
+    rs1_t3 @skip_compress beqz
 
-    ; here s6 == s7 && s7 % 64 == 0 && s7 != 0
+    ; here pos == max_pos && pos % 64 == 0 && pos != 0
     rd_t0 !3 mv ; `ecall::SHA'
     rd_a0 ~stdin_sha_state auipc ; input sha state
     rd_a0 rs1_a0 !stdin_sha_state addi
@@ -114,7 +123,7 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
     ecall
 
     :skip_compress
-    ; here s6 == s7 && s7 % 64 == 0
+    ; here pos == max_pos && pos % 64 == 0
     rd_t0 !2 addi ; `ecall::SOFTWARE'
     rd_a0 rs1_s2 mv
     rd_a1 !16 addi         ; syscall buffer length in words
@@ -125,39 +134,48 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
     rd_a5 !64 addi         ; Set read length
     ecall                 ; `ecall(t0, a0, a1, a2, a3, a4, a5)'
 
-    ; add count of read bytes to s7
-    rd_s7 rs1_a0 rs2_s7 add
+    ; add count of read bytes to max_pos
+    rd_t3 rs1_t3 rs2_a0 add
+    '23 22 c9 09' #rs1_s2 !132 rs2_t3 sw
 
     :skip_read
     ; execution always reaches here
-    rs1_s6 rs2_s7 @skip_eof bne
+    rs1_t2 rs2_t3 @skip_eof bne
 
-    ; here s6 == s7
+    ; here pos == max_pos
     rd_a0 !-1 addi ; a0 = -1 (EOF)
     ret
 
     :skip_eof
-    ; here s6 < s7
-    rd_t3 rs1_s6 !63 andi  ; t3 = s6 % 64
-    rd_t2 rs1_s2 rs2_t3 add ; t2 = input_buffer + t3
-    rd_a0 rs1_t2 lb ; a0 = *(char*)t2
-    rd_s6 rs1_s6 !1 addi ; s6 += 1
+    ; here pos < max_pos
+    rd_t0 rs1_t2 !63 andi  ; t0 = pos % 64
+    rd_t0 rs1_t0 rs2_s2 add ; t0 = input_buffer + t0
+    rd_a0 rs1_t0 lb ; a0 = *(char*)t0
+
+    ; increment pos
+    rd_t2 rs1_t2 !1 addi
+    rs1_s2 !128 rs2_t2 sw
+
     ret
 
 :putchar
     ; (eventually) put (char)a0 onto stdout
 
-    rd_t2 rs1_s8 !63 andi
-    rd_t2 rs1_s3 rs2_t2 add ; output_buffer + (s8 % 64)
-    rs1_t2 rs2_a0 sb
-    rd_s8 rs1_s8 !1 addi
+    rd_t2 rs1_s3 !128 lw
+    rd_t0 rs1_t2 !63 andi
+    rd_t0 rs1_s3 rs2_t0 add ; t0 = output_buffer + (pos % 64)
+    rs1_t0 rs2_a0 sb ; *t0 = a0
 
-    rd_t2 rs1_s8 !63 andi
-    rs1_t2 @skip_flush bnez
+    ; increment pos
+    rd_t2 rs1_t2 !1 addi
+    rs1_s3 !128 rs2_t2 sw
 
-    ; here s8 % 64 == 0
+    rd_t0 rs1_t2 !63 andi
+    rs1_t0 @skip_flush bnez
+
+    ; here pos % 64 == 0
     ; write out the buffer and compress
-    rd_t0 !2 addi ; `ecall::SOFTWARE'
+    rd_t0 !2 mv ; `ecall::SOFTWARE'
     rd_a0 !0 mv
     rd_a1 !0 mv
     rd_a2 ~sys_write auipc  ; Set syscall name C string
