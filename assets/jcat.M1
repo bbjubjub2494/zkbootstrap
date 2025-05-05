@@ -19,9 +19,25 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
     rd_sp ~0x200400 lui            ; zkvm-specific per risc0/zkvm/platform/src/memory.rs
     rd_sp rs1_sp !0x200400 addi
 
-    ; allocate buffers: 1 sha2 block working space + 1 block reserved for padding
-    rd_s2 rs1_sp !-192 addi
-    rd_sp rs1_sp !-192 addi
+    ; allocate all of the heap to the input contents.
+    ; this allows more complex programs to perform multiple passes
+    rd_s2 ~ELF_end auipc
+    rd_s2 rs1_s2 !ELF_end addi
+    
+    ; slurp the whole input
+    rd_t0 !2 addi ; `ecall::SOFTWARE'
+    rd_a0 rs1_s2 !8 addi
+    rd_a5 !0x400 mv
+    rd_a5 rs1_a5 !8 slli
+    rd_a1 rs1_a5 !2 srai mv   ; syscall buffer length in words
+    rd_a2 ~sys_read auipc  ; Set syscall name C string
+    rd_a2 rs1_a2 !sys_read addi
+    rd_a3 !0 mv            ; Set file to `STDIN_FILENO'
+    rd_a4 rs1_a0 mv
+    ecall                 ; `ecall(t0, a0, a1, a2, a3, a4, a5)'
+    ; TODO hash input
+
+    ; allocate output buffer: 1 sha2 block working space + 1 block reserved for padding
     rd_s3 rs1_sp !-192 addi
     rd_sp rs1_sp !-192 addi
 
@@ -47,7 +63,7 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
 
     rd_a0 ~stdin_sha_state auipc
     rd_a0 rs1_a0 !stdin_sha_state addi
-    rd_a1 rs1_s2 mv
+    rd_a1 rs1_s2 lw
     rd_a2 rs1_s2 !128 lw
     rd_ra $sha_finalize jal
 
@@ -103,43 +119,8 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
 :getchar
     ; read 1 character from stdin into a0
 
-    rd_t2 rs1_s2 !128 lw
-    rd_t3 rs1_s2 !132 lw
-    rs1_t2 rs2_t3 @skip_read bne
-    rd_t0 rs1_t3 !63 andi
-    rs1_t0 @skip_read bnez
-
-    ; here pos == max_pos && pos % 64 == 0
-    rs1_t3 @skip_compress beqz
-
-    ; here pos == max_pos && pos % 64 == 0 && pos != 0
-    rd_t0 !3 mv ; `ecall::SHA'
-    rd_a0 ~stdin_sha_state auipc ; input sha state
-    rd_a0 rs1_a0 !stdin_sha_state addi
-    rd_a1 rs1_a0 mv ; output sha state (= input)
-    rd_a2 rs1_s2 mv ; buffer
-    rd_a3 rs1_a2 !32 addi
-    rd_a4 !1 mv ; block count
-    ecall
-
-    :skip_compress
-    ; here pos == max_pos && pos % 64 == 0
-    rd_t0 !2 addi ; `ecall::SOFTWARE'
-    rd_a0 rs1_s2 mv
-    rd_a1 !16 addi         ; syscall buffer length in words
-    rd_a2 ~sys_read auipc  ; Set syscall name C string
-    rd_a2 rs1_a2 !sys_read addi
-    rd_a3 !0 addi          ; Set file to `STDIN_FILENO'
-    rd_a4 rs1_s2 mv
-    rd_a5 !64 addi         ; Set read length
-    ecall                 ; `ecall(t0, a0, a1, a2, a3, a4, a5)'
-
-    ; add count of read bytes to max_pos
-    rd_t3 rs1_t3 rs2_a0 add
-    '23 22 c9 09' #rs1_s2 !132 rs2_t3 sw
-
-    :skip_read
-    ; execution always reaches here
+    rd_t2 rs1_s2 !0 lw ; pos
+    rd_t3 rs1_s2 !4 lw ; max pos
     rs1_t2 rs2_t3 @skip_eof bne
 
     ; here pos == max_pos
@@ -148,13 +129,13 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
 
     :skip_eof
     ; here pos < max_pos
-    rd_t0 rs1_t2 !63 andi  ; t0 = pos % 64
-    rd_t0 rs1_t0 rs2_s2 add ; t0 = input_buffer + t0
+    rd_t0 rs1_s2 !8 addi ; input_buffer
+    rd_t0 rs1_t0 rs2_s2 add ; t0 = input_buffer + pos
     rd_a0 rs1_t0 lb ; a0 = *(char*)t0
 
     ; increment pos
     rd_t2 rs1_t2 !1 addi
-    rs1_s2 !128 rs2_t2 sw
+    rs1_s2 !0 rs2_t2 sw
 
     ret
 
@@ -286,4 +267,5 @@ DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5
 :sys_write
     "risc0_zkvm_platform::syscall::nr::SYS_WRITE"
 
+'00' ; padding
 :ELF_end

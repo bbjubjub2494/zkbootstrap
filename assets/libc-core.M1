@@ -26,13 +26,12 @@
     rd_ra $FUNCTION_main jal
 
     ; Exit to host
-:FUNCTION_exit
-:FUNCTION__exit
     rd_t0 !0 addi              ; `ecall::HALT`
     rd_a0 !0 addi              ; `halt::TERMINATE` with 0 exit code
     rd_a1 ~digest auipc        ; Set output digest
     rd_a1 rs1_a1 !digest addi
     ecall                      ; `ecall(t0, a0, a1)`
+    ret ; unreachable, just for decompilers
     
 :digest
     ; SHA2-256 hash of the null journal & assumption

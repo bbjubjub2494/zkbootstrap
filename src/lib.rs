@@ -1,5 +1,11 @@
 use sha2::{Digest, Sha256};
 
+use rust_embed::Embed;
+
+#[derive(Embed)]
+#[folder = "$OUT_DIR"]
+pub struct Artifacts;
+
 use std::collections::HashMap;
 use std::io::Write;
 

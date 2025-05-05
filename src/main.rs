@@ -5,14 +5,8 @@ use std::io::Read;
 use std::time::Instant;
 use std::borrow::Cow;
 
-use rust_embed::Embed;
-
-#[derive(Embed)]
-#[folder = "$OUT_DIR"]
-struct Asset;
-
 pub fn jhex0_program() -> Cow<'static, [u8]> {
-    Asset::get("jhex0_program").unwrap().data
+    Artifacts::get("jhex0_program").unwrap().data
 }
 
 fn slurp(path: &str) -> anyhow::Result<Vec<u8>> {

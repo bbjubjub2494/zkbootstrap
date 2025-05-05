@@ -1,13 +1,5 @@
 use zkbootstrap::*;
 
-pub fn jcat_program() -> &'static [u8] {
-    include_bytes!(concat!(env!("OUT_DIR"), "/jcat"))
-}
-
-pub fn jhex0_program() -> &'static [u8] {
-    include_bytes!(concat!(env!("OUT_DIR"), "/jhex0"))
-}
-
 static SAMPLES: &[&[u8]] = &[
     b"",
     b"hello",
@@ -19,22 +11,37 @@ static SAMPLES: &[&[u8]] = &[
 
 #[test]
 pub fn test_jcat() -> Result<()> {
+    let program = Artifacts::get("jcat").unwrap().data;
     for &sample in SAMPLES {
-        let output_bytes = execute(&jcat_program(), sample, None::<&mut std::io::Stderr>)?;
+        let output_bytes = execute(&program, sample, None::<&mut std::io::Stderr>)?;
         assert_eq!(output_bytes, sample);
     }
     for &sample in SAMPLES {
-        let (output_bytes, _) = prove(&jcat_program(), sample, None::<&mut std::io::Stderr>)?;
+        let (output_bytes, _) = prove(&program, sample, None::<&mut std::io::Stderr>)?;
         assert_eq!(output_bytes, sample);
     }
     Ok(())
 }
 
 #[test]
+pub fn test_jcat_reference() -> Result<()> {
+    // note: jcat_reference is very slow due to M2-Planet not optimizing, so it is only ran once
+    let program = Artifacts::get("cat_reference").unwrap().data;
+    let sample = b"hello";
+        let output_bytes = execute(&program, sample, None::<&mut std::io::Stderr>)?;
+        assert_eq!(output_bytes, sample);
+        let (output_bytes, _) = prove(&program, sample, None::<&mut std::io::Stderr>)?;
+        assert_eq!(output_bytes, sample);
+    Ok(())
+}
+
+#[test]
 pub fn test_jhex0() -> Result<()> {
-    let program = jhex0_program();
+    let program = Artifacts::get("jhex0").unwrap().data;
     let input_bytes = b"7465 7374 0a";
-    let output_bytes = execute(program, input_bytes, None::<&mut std::io::Stderr>)?;
+    let output_bytes = execute(&program, input_bytes, None::<&mut std::io::Stderr>)?;
+    assert_eq!(output_bytes, b"test\n");
+    let (output_bytes, _) = prove(&program, input_bytes, None::<&mut std::io::Stderr>)?;
     assert_eq!(output_bytes, b"test\n");
     Ok(())
 }
