@@ -6,7 +6,7 @@ use std::time::Instant;
 use std::borrow::Cow;
 
 pub fn jhex0_program() -> Cow<'static, [u8]> {
-    Artifacts::get("jhex0_program").unwrap().data
+    stage0::Assets::get("jhex0_program").unwrap().data
 }
 
 fn slurp(path: &str) -> anyhow::Result<Vec<u8>> {

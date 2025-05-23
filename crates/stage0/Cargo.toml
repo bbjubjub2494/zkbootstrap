@@ -1,0 +1,11 @@
+[package]
+name = "stage0"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+
+[dependencies]
+rust-embed.workspace = true
+
+[build-dependencies]
+build-rs.workspace = true

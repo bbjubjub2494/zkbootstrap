@@ -1,10 +1,8 @@
-use std::fs::{File, self};
-use std::path::{Path, PathBuf};
+use std::fs::File;
+use std::path::Path;
 
 fn main() {
     build::rerun_if_env_changed("M2LIBC_PATH");
-    let m2libc_path = std::env::var("M2LIBC_PATH").unwrap();
-    
     let assets_path = Path::new("assets");
 
     for name in ["jhex0", "jcat"] {

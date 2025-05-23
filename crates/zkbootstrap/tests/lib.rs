@@ -1,4 +1,5 @@
 use zkbootstrap::*;
+use stage0::Assets;
 
 static SAMPLES: &[&[u8]] = &[
     b"",
@@ -12,7 +13,7 @@ static SAMPLES: &[&[u8]] = &[
 /* FIXME continuous allocation version crashes
 #[test]
 pub fn test_jcat() -> Result<()> {
-    let program = Artifacts::get("jcat").unwrap().data;
+    let program = Assets::get("jcat").unwrap().data;
     for &sample in SAMPLES {
         let output_bytes = execute(&program, sample, None::<&mut std::io::Stderr>)?;
         assert_eq!(output_bytes, sample);
@@ -28,7 +29,7 @@ pub fn test_jcat() -> Result<()> {
 #[test]
 pub fn test_jcat_reference() -> Result<()> {
     // note: jcat_reference is very slow due to M2-Planet not optimizing, so it is only ran once
-    let program = Artifacts::get("cat_reference").unwrap().data;
+    let program = Assets::get("cat_reference").unwrap().data;
     let sample = b"hello";
         let output_bytes = execute(&program, sample, None::<&mut std::io::Stderr>)?;
         assert_eq!(output_bytes, sample);
@@ -39,7 +40,7 @@ pub fn test_jcat_reference() -> Result<()> {
 
 #[test]
 pub fn test_jhex0() -> Result<()> {
-    let program = Artifacts::get("jhex0").unwrap().data;
+    let program = Assets::get("jhex0").unwrap().data;
     let input_bytes = b"7465 7374 0a";
     let output_bytes = execute(&program, input_bytes, None::<&mut std::io::Stderr>)?;
     assert_eq!(output_bytes, b"test\n");

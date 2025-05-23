@@ -1,21 +1,25 @@
-[package]
-name = "zkbootstrap"
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+[workspace]
+resolver = "2"
+members = [
+    "crates/zkbootstrap",
+    "crates/stage0",
+    "crates/methods",
+]
+
+[workspace.dependencies]
 risc0-zkvm = { version = "1.2.5" }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+risc0-build = { version = "1.2.5" }
 serde = "1.0"
 anyhow = "1.0.97"
 sha2 = "0.10.8"
-methods.path = "methods"
 hex = "0.4.3"
 rust-embed = { version = "8.7.0", features = ["interpolate-folder-path"] }
-
-[build-dependencies]
 build-rs = "0.1.2"
 
-[[bench]]
-name = "proving"
-harness = false
+methods.path = "crates/methods"
+stage0.path = "crates/stage0"
+zkbootstrap.path = "crates/zkbootstrap"
