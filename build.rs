@@ -1,10 +1,6 @@
 use std::fs::{File, self};
 use std::path::{Path, PathBuf};
 
-fn mkpath(dir: &Path, name: &str, ext: &str) -> PathBuf {
-    dir.join(format!("{name}.{ext}"))
-}
-
 fn main() {
     build::rerun_if_env_changed("M2LIBC_PATH");
     let m2libc_path = std::env::var("M2LIBC_PATH").unwrap();
@@ -16,6 +12,8 @@ fn main() {
     }
 
     compile_m2(Path::new("assets/cat_reference.M2"));
+    //compile_m2(Path::new("assets/M1-macro.c"));
+    compile_m1(Path::new("assets/hello.M1"), false);
 }
 fn compile_m2(source: &Path) {
     let prelude_path = "assets/libj_prelude.c";

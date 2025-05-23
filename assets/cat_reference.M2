@@ -1,4 +1,4 @@
-int c; // FIXME stack variables broken for some reason
+int c; // FIXME stack variables in main() broken for some reason
 int main() {
 	j_prepare();
 
