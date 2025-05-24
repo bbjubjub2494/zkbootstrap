@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use flate2::read::GzDecoder;
 
@@ -21,7 +23,8 @@ fn main() -> Result<()> {
             let nodes: Vec<Node> = rmp_serde::decode::from_read(&mut dec)?;
             let blobs: Vec<Blob> = rmp_serde::decode::from_read(&mut dec)?;
             let rcpts: Vec<(NodeRef, BlobRef, Receipt)> = rmp_serde::decode::from_read(&mut dec)?;
-            let mut store = store::in_memory();
+            let store_path: PathBuf = std::env::current_dir()?.join("store");
+            let mut store = store::filesystem(store_path);
             for node in nodes {
                 store.add_node(node.program, node.input);
             }
