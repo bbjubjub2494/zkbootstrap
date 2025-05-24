@@ -5,6 +5,8 @@ edition = "2021"
 [workspace]
 resolver = "2"
 members = [
+    "bin/demo",
+
     "crates/zkbootstrap",
     "crates/stage0",
     "crates/methods",
@@ -14,6 +16,7 @@ members = [
 risc0-zkvm = { version = "1.2.5" }
 risc0-build = { version = "1.2.5" }
 serde = "1.0"
+serde_json = "1.0"
 anyhow = "1.0.97"
 sha2 = "0.10.8"
 hex = "0.4.3"

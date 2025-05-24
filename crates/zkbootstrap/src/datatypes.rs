@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use sha2::{Digest, Sha256};
 
 use serde::{Deserialize, Serialize};
@@ -9,11 +11,11 @@ pub struct BlobRef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Blob {
-    pub bytes: Vec<u8>,
+pub struct Blob<'a> {
+    pub bytes: Cow<'a, [u8]>,
 }
 
-impl Blob {
+impl<'a> Blob<'a> {
     pub fn compute_ref(&self) -> BlobRef {
         let mut hasher = Sha256::new();
         hasher.update(&self.bytes);

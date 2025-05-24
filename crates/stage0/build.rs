@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{File,copy};
 use std::path::Path;
 
 fn main() {
@@ -12,6 +12,7 @@ fn main() {
     compile_m2(Path::new("assets/cat_reference.M2"));
     //compile_m2(Path::new("assets/M1-macro.c"));
     compile_m1(Path::new("assets/hello.M1"), false);
+    copy(Path::new("assets/hello.hex0"), build::out_dir().join("hello.hex0")).expect("Failed to copy hello.hex0");
 }
 fn compile_m2(source: &Path) {
     let prelude_path = "assets/libj_prelude.c";

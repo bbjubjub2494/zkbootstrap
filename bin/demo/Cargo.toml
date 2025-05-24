@@ -1,0 +1,9 @@
+[package]
+name = "demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+zkbootstrap.workspace = true
+stage0.workspace = true
+serde_json.workspace = true
