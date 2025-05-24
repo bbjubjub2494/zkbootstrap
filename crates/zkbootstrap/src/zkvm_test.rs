@@ -70,3 +70,11 @@ pub fn test_jhex0_reference() -> Result<()> {
     assert_eq!(output_bytes, b"test\n");
     Ok(())
 }
+
+#[test]
+pub fn test_hello_hex0() -> Result<()> {
+    let program = Assets::get("jhex0").unwrap().data;
+    let input_bytes = Assets::get("hello.hex0").unwrap().data;
+    let output_bytes = execute(&program, &input_bytes, None::<&mut std::io::Stderr>)?;
+    Ok(())
+}

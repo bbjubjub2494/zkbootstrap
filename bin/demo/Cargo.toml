@@ -6,4 +6,9 @@ edition = "2021"
 [dependencies]
 zkbootstrap.workspace = true
 stage0.workspace = true
+
+anyhow.workspace = true
 serde_json.workspace = true
+rmp-serde.workspace = true
+methods.workspace = true
+flate2.workspace = true

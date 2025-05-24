@@ -77,8 +77,8 @@ impl <'a> InMemoryStore<'a> {
         Ok(())
     }
 
-    pub fn add_node(&mut self, program: BlobOrOutputRef, input: BlobOrOutputRef) -> NodeRef {
-        let node = Node { program, input };
+    pub fn add_node(&mut self, program: impl Into<BlobOrOutputRef>, input: impl Into<BlobOrOutputRef>) -> NodeRef {
+        let node = Node { program: program.into(), input: input.into() };
         let r = node.compute_ref();
         self.nodes.insert(r, node);
         r
@@ -88,6 +88,9 @@ impl <'a> InMemoryStore<'a> {
         let r = blob.compute_ref();
         self.blobs.insert(r, blob);
         r
+    }
+    pub fn get_node(&self, node_ref: NodeRef) -> Option<&Node> {
+        self.nodes.get(&node_ref)
     }
     pub fn get_blob(&self, blob_ref: BlobRef) -> Option<&Blob<'a>> {
         self.blobs.get(&blob_ref)

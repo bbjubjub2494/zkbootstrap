@@ -7,11 +7,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct BlobRef {
+    #[serde(with = "serde_bytes")]
     pub hash: [u8; 32],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Blob<'a> {
+    //FIXME #[serde(with = "serde_bytes")]
     pub bytes: Cow<'a, [u8]>,
 }
 
@@ -27,6 +29,7 @@ impl<'a> Blob<'a> {
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct NodeRef {
+    #[serde(with = "serde_bytes")]
     pub hash: [u8; 32],
 }
 
