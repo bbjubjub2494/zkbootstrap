@@ -1,4 +1,5 @@
-default: setup demo
+default:
+  cargo run --bin zb import target/demo.zbg
 
 setup:
   rzup install r0vm 1.2.5

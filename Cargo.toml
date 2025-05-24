@@ -6,6 +6,7 @@ edition = "2021"
 resolver = "2"
 members = [
     "bin/demo",
+    "bin/zb",
 
     "crates/zkbootstrap",
     "crates/stage0",
@@ -25,6 +26,7 @@ hex = "0.4.3"
 rust-embed = { version = "8.7.0", features = ["interpolate-folder-path"] }
 flate2 = "1.1"
 build-rs = "0.1.2"
+clap = { version = "4.5", features = ["derive"] }
 
 methods.path = "crates/methods"
 stage0.path = "crates/stage0"

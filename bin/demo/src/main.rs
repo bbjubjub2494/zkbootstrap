@@ -26,9 +26,9 @@ fn main() -> Result<()> {
     let hello_output = store.get_blob(output_ref).unwrap();
 
     let mut w = GzEncoder::new(std::fs::File::create(dst)?, Compression::default());
-    rmp_serde::encode::write(&mut w, &[&store.get_node(hello).unwrap()])?;
-    rmp_serde::encode::write(&mut w, &[store.get_blob(hex0).unwrap(), store.get_blob(hello_src).unwrap(), &hello_output])?;
-    rmp_serde::encode::write(&mut w, &[&receipt])?;
+    rmp_serde::encode::write(&mut w, &vec![store.get_node(hello).unwrap()])?;
+    rmp_serde::encode::write(&mut w, &vec![store.get_blob(hex0).unwrap(), store.get_blob(hello_src).unwrap(), &hello_output])?;
+    rmp_serde::encode::write(&mut w, &vec![(hello, output_ref, &receipt)])?;
 
     Ok(())
 }
