@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::fmt::Display;
 
 use sha2::{Digest, Sha256};
 
@@ -9,6 +10,12 @@ use serde::{Deserialize, Serialize};
 pub struct BlobRef {
     #[serde(with = "serde_bytes")]
     pub hash: [u8; 32],
+}
+
+impl Display for BlobRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BlobRef({})", hex::encode(self.hash))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,6 +38,12 @@ impl<'a> Blob<'a> {
 pub struct NodeRef {
     #[serde(with = "serde_bytes")]
     pub hash: [u8; 32],
+}
+
+impl Display for NodeRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "NodeRef({})", hex::encode(self.hash))
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -76,5 +89,15 @@ impl BlobOrOutputRef {
             }
         }
         hasher.finalize().into()
+    }
+}
+
+impl Display for BlobOrOutputRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            // passthrough to the inner types' Display implementation because they are unambiguous
+            BlobOrOutputRef::OutputRef(r) => r.fmt(f),
+            BlobOrOutputRef::BlobRef(r) => r.fmt(f),
+        }
     }
 }

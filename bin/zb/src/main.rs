@@ -21,7 +21,7 @@ fn main() -> Result<()> {
             let nodes: Vec<Node> = rmp_serde::decode::from_read(&mut dec)?;
             let blobs: Vec<Blob> = rmp_serde::decode::from_read(&mut dec)?;
             let rcpts: Vec<(NodeRef, BlobRef, Receipt)> = rmp_serde::decode::from_read(&mut dec)?;
-            let mut store = InMemoryStore::new();
+            let mut store = store::in_memory();
             for node in nodes {
                 store.add_node(node.program, node.input);
             }

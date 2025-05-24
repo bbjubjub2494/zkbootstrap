@@ -9,7 +9,7 @@ fn main() -> Result<()> {
     let Some(dst) = std::env::args().nth(1) else {
         anyhow::bail!("Usage: jhex0 <output file>");
     };
-    let mut store = InMemoryStore::new();
+    let mut store = store::in_memory();
 
     // FIXME: use hex0
     //let hex0 = store.add_blob(Assets::get("jhex0").unwrap().data);
@@ -27,7 +27,7 @@ fn main() -> Result<()> {
 
     let mut w = GzEncoder::new(std::fs::File::create(dst)?, Compression::default());
     rmp_serde::encode::write(&mut w, &vec![store.get_node(hello).unwrap()])?;
-    rmp_serde::encode::write(&mut w, &vec![store.get_blob(hex0).unwrap(), store.get_blob(hello_src).unwrap(), &hello_output])?;
+    rmp_serde::encode::write(&mut w, &vec![store.get_blob(hex0).unwrap(), store.get_blob(hello_src).unwrap(), hello_output])?;
     rmp_serde::encode::write(&mut w, &vec![(hello, output_ref, &receipt)])?;
 
     Ok(())
