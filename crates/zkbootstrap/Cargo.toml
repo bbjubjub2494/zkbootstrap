@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+format.workspace = true
 stage0.workspace = true
 
 risc0-zkvm.workspace = true

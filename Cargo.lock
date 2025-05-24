@@ -760,6 +760,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "format"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "rmp-serde",
+ "serde",
+]
+
+[[package]]
 name = "futures-channel"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3099,6 +3108,7 @@ name = "zkbootstrap"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "format",
  "hex",
  "methods",
  "risc0-zkvm",

@@ -1,0 +1,9 @@
+[package]
+name = "format"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+flate2.workspace = true
+serde.workspace = true
+rmp-serde.workspace = true

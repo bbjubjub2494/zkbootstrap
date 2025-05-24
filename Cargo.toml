@@ -28,6 +28,7 @@ flate2 = "1.1"
 build-rs = "0.1.2"
 clap = { version = "4.5", features = ["derive"] }
 
+format.path = "crates/format"
 methods.path = "crates/methods"
 stage0.path = "crates/stage0"
 zkbootstrap.path = "crates/zkbootstrap"
