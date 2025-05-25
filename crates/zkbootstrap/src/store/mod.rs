@@ -117,14 +117,17 @@ impl <'a, B: Backend<'a>> Store<B> {
         self.backend.resolve_blob(r).ok_or(anyhow!("output unavailable for {}", r))
     }
 
-    pub fn walk(&self, r: BlobOrOutputRef, f: fn (&Self, WalkStep) -> Result<()>) -> Result<()> {
+    pub fn walk(&self, r: BlobOrOutputRef, mut f: impl FnMut(&Self, WalkStep) -> Result<()>) -> Result<()> {
+        self.inner_walk(r, &mut f)
+    }
+    fn inner_walk(&self, r: BlobOrOutputRef, f: &mut impl FnMut(&Self, WalkStep) -> Result<()>) -> Result<()> {
         match r {
             BlobOrOutputRef::OutputRef(output_ref) => {
                 f(self, WalkStep::BeginNode(output_ref))?;
                 let node = self.get_node(output_ref)?;
                 // FIXME: recursion
-                self.walk(node.program, f)?;
-                self.walk(node.input, f)?;
+                self.inner_walk(node.program, f)?;
+                self.inner_walk(node.input, f)?;
                 f(self, WalkStep::StopNode(output_ref))?;
             }
             BlobOrOutputRef::BlobRef(node_ref) => {
