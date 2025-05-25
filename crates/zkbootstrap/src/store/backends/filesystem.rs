@@ -19,19 +19,19 @@ impl FileSystem {
     fn get_node_path(&self, node_ref: NodeRef) -> std::path::PathBuf {
         let dir = self.store_path.join("node");
         std::fs::create_dir_all(&dir).expect("Failed to create node directory");
-        dir.join(hex::encode(&node_ref.hash[..20]))
+        dir.join(hex::encode(&node_ref.hash))
     }
 
     fn get_blob_path(&self, blob_ref: BlobRef) -> std::path::PathBuf {
         let dir = self.store_path.join("blob");
         std::fs::create_dir_all(&dir).expect("Failed to create blob directory");
-        dir.join(hex::encode(&blob_ref.hash[..20]))
+        dir.join(hex::encode(&blob_ref.hash))
     }
 
     fn get_output_path(&self, node_ref: NodeRef) -> std::path::PathBuf {
         let dir = self.store_path.join("output");
         std::fs::create_dir_all(&dir).expect("Failed to create output directory");
-        dir.join(hex::encode(&node_ref.hash[..20]))
+        dir.join(hex::encode(&node_ref.hash))
     }
 }
 

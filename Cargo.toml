@@ -27,6 +27,7 @@ rust-embed = { version = "8.7.0", features = ["interpolate-folder-path"] }
 flate2 = "1.1"
 build-rs = "0.1.2"
 clap = { version = "4.5", features = ["derive"] }
+ptree = "0.5"
 
 format.path = "crates/format"
 methods.path = "crates/methods"

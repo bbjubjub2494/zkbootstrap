@@ -24,6 +24,12 @@ pub struct Store<B> {
     backend: B,
 }
 
+pub enum WalkStep {
+    BeginNode(NodeRef),
+    StopNode(NodeRef),
+    Blob(BlobRef),
+}
+
 pub fn in_memory<'a>() -> Store<backends::InMemory<'a>> {
     Store::new(backends::InMemory::new())
 }
@@ -109,5 +115,22 @@ impl <'a, B: Backend<'a>> Store<B> {
     }
     pub fn resolve_blob(self: &Self, r: BlobOrOutputRef) -> Result<BlobRef> {
         self.backend.resolve_blob(r).ok_or(anyhow!("output unavailable for {}", r))
+    }
+
+    pub fn walk(&self, r: BlobOrOutputRef, f: fn (&Self, WalkStep) -> Result<()>) -> Result<()> {
+        match r {
+            BlobOrOutputRef::OutputRef(output_ref) => {
+                f(self, WalkStep::BeginNode(output_ref))?;
+                let node = self.get_node(output_ref)?;
+                // FIXME: recursion
+                self.walk(node.program, f)?;
+                self.walk(node.input, f)?;
+                f(self, WalkStep::StopNode(output_ref))?;
+            }
+            BlobOrOutputRef::BlobRef(node_ref) => {
+                f(self, WalkStep::Blob(node_ref))?;
+            }
+        }
+        Ok(())
     }
 }

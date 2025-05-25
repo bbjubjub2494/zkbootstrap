@@ -4,7 +4,7 @@ pub mod datatypes;
 pub mod zkvm;
 pub mod store;
 
-pub use datatypes::{Blob, BlobRef, Node, NodeRef};
+pub use datatypes::{Blob, BlobRef, Node, NodeRef, BlobOrOutputRef};
 pub use zkvm::Receipt;
 
 #[cfg(test)]
