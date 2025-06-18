@@ -1,0 +1,39 @@
+## Copyright (C) 2021 Andrius Štikonas
+## This file is part of stage0.
+##
+## stage0 is free software: you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation, either version 3 of the License, or
+## (at your option) any later version.
+##
+## stage0 is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with stage0.  If not, see <http://www.gnu.org/licenses/>.
+
+:_start
+    rd_sp ~0x200400 lui            ; zkvm-specific per risc0/zkvm/platform/src/memory.rs
+    rd_sp rs1_sp !0x200400 addi
+
+    rd_fp rs1_sp mv                ; init frame pointer
+    rd_tp rs1_sp mv                ; init frame pointer
+
+    ; NOTE argv and envp are handled using syscalls, not main() arguments
+
+    ; Call main function
+    rd_ra $FUNCTION_main jal
+
+    ; Exit to host
+    rd_t0 !0 addi              ; `ecall::HALT`
+    rd_a0 !0 addi              ; `halt::TERMINATE` with 0 exit code
+    rd_a1 ~digest auipc        ; Set output digest
+    rd_a1 rs1_a1 !digest addi
+    ecall                      ; `ecall(t0, a0, a1)`
+    ret ; unreachable, just for decompilers
+    
+:digest
+    ; SHA2-256 hash of the null journal & assumption
+    '836f175c62c0f353831665427e8b0b34f6d1d21902764daeb406c6b83db575b0'

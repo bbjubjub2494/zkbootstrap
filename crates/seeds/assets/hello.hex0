@@ -1,0 +1,79 @@
+### Copyright (C) 2016 Jeremiah Orians
+### Copyright (C) 2017 Jan Nieuwenhuizen <janneke@gnu.org>
+### This file is part of M2-Planet.
+###
+### M2-Planet is free software: you can redistribute it and/or modify
+### it under the terms of the GNU General Public License as published by
+### the Free Software Foundation, either version 3 of the License, or
+### (at your option) any later version.
+###
+### M2-Planet is distributed in the hope that it will be useful,
+### but WITHOUT ANY WARRANTY; without even the implied warranty of
+### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+### GNU General Public License for more details.
+###
+### You should have received a copy of the GNU General Public License
+### along with M2-Planet.  If not, see <http://www.gnu.org/licenses/>.
+
+### hello.hex0: x86_64 linux hello world
+
+## ELF Header
+
+7F 45 4C 46             ## e_ident[EI_MAG0-3] ELF's magic number
+                       
+02                      ## e_ident[EI_CLASS] Indicating 64 bit
+01                      ## e_ident[EI_DATA] Indicating little endianness
+01                      ## e_ident[EI_VERSION] Indicating original elf
+                       
+03                      ## e_ident[EI_OSABI] Set at 3 because FreeBSD is strict
+00                      ## e_ident[EI_ABIVERSION] Set at 0 because none cares
+
+00 00 00 00 00 00 00    ## e_ident[EI_PAD]
+02 00                   ## e_type Indicating Executable
+3E 00                   ## e_machine Indicating AMD64
+01 00 00 00             ## e_version Indicating original elf
+
+78 00 60 00 00 00 00 00 ## e_entry Address of the entry point (Number of bytes this header is + Base Address)
+40 00 00 00 00 00 00 00 ## e_phoff Address of program header table
+00 00 00 00 00 00 00 00 ## e_shoff Address of section header table
+
+00 00 00 00             ## e_flags
+40 00                   ## e_ehsize Indicating our 64 Byte header
+
+38 00                   ## e_phentsize size of a program header table
+01 00                   ## e_phnum number of entries in program table
+
+00 00                   ## e_shentsize size of a section header table
+00 00                   ## e_shnum number of entries in section table
+
+00 00                   ## e_shstrndx index of the section names
+
+## Program Header
+01 00 00 00             ## p_type
+07 00 00 00             ## ph_flags: PF-X|PF-W|PF-R = 7
+00 00 00 00 00 00 00 00 ## p_offset
+
+00 00 60 00 00 00 00 00 ## p_vaddr
+00 00 60 00 00 00 00 00 ## p_physaddr
+
+B5 00 00 00 00 00 00 00 ## p_filesz
+B5 00 00 00 00 00 00 00 ## p_memsz
+
+01 00 00 00 00 00 00 00 ## Required alignment
+
+; start of program (offset 0x78)
+
+; syscall for write (sys_write)
+48 C7 C0 01 00 00 00    ## mov rax, 1    ; System call number for sys_write
+48 C7 C7 01 00 00 00    ## mov rdi, 1    ; File descriptor 1 (stdout)
+48 C7 C6 a6 00 60 00    ## mov rsi, msg  ; Address of our string
+48 C7 C2 0e 00 00 00    ## mov rdx, len  ; Length of the string
+0F 05                   ## syscall       ; Execute the system call
+
+; syscall for exit (sys_exit)
+48 C7 C0 3c 00 00 00    ## mov rax, 60   ; System call number for sys_exit
+48 C7 C7 00 00 00 00    ## xor rdi, rdi  ; Exit code 0
+0F 05                   ## syscall       ; Execute the system call
+
+; message (offset 0xa6)
+48 65 6C 6C 6F 2C 20 57 6F 72 6C 64 21 0A ## "Hello, World!\n"

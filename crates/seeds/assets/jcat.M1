@@ -1,0 +1,271 @@
+; register use
+; s2: pointer to input file handle
+; s3: pointer to output file handle
+; s4-s5 reserved for program logic
+
+; filehandle layout
+; [0;64) working buffer, size matches sha2 block
+; [64;128) used to store padding when finalizing a file
+; [128;132) current position within the file
+; [132;136) position of the next byte that will be read, unused for output files
+; [136;192) padding
+DEFINE fh_size 192
+DEFINE fh_pos_offset 128
+DEFINE fh_max_pos_offset 132
+
+DEFINE sha_state_init '6a09e667bb67ae853c6ef372a54ff53a510e527f9b05688c1f83d9ab5be0cd19'
+
+:_start
+    rd_sp ~0x200400 lui            ; zkvm-specific per risc0/zkvm/platform/src/memory.rs
+    rd_sp rs1_sp !0x200400 addi
+
+    ; allocate all of the heap to the input contents.
+    ; this allows more complex programs to perform multiple passes
+    rd_s2 ~ELF_end auipc
+    rd_s2 rs1_s2 !ELF_end addi
+    
+    ; slurp the whole input
+    rd_t0 !2 addi ; `ecall::SOFTWARE'
+    rd_a0 rs1_s2 !8 addi
+    rd_a5 !0x400 mv
+    rd_a5 rs1_a5 !8 slli
+    rd_a1 rs1_a5 !2 srai mv   ; syscall buffer length in words
+    rd_a2 ~sys_read auipc  ; Set syscall name C string
+    rd_a2 rs1_a2 !sys_read addi
+    rd_a3 !0 mv            ; Set file to `STDIN_FILENO'
+    rd_a4 rs1_a0 mv
+    ecall                 ; `ecall(t0, a0, a1, a2, a3, a4, a5)'
+    ; TODO hash input
+
+    ; allocate output buffer: 1 sha2 block working space + 1 block reserved for padding
+    rd_s3 rs1_sp !-192 addi
+    rd_sp rs1_sp !-192 addi
+
+    :loop
+    rd_ra $getchar jal
+    rs1_a0 @end_loop bltz
+    rd_ra $putchar jal
+    @loop beq
+
+    :end_loop
+
+    ; flush output buffer
+    rd_t0 !2 addi ; `ecall::SOFTWARE'
+    rd_a0 !0 mv
+    rd_a1 !0 mv
+    rd_a2 ~sys_write auipc
+    rd_a2 rs1_a2 !sys_write addi
+    rd_a3 !1 mv          ; file descriptor
+    rd_a4 rs1_s3 mv
+    rd_a5 rs1_s3 !128 lw
+    rd_a5 rs1_a5 !63 andi
+    ecall                 ; `ecall(t0, a0, a1, a2, a3, a4, a5)'
+
+    rd_a0 ~stdin_sha_state auipc
+    rd_a0 rs1_a0 !stdin_sha_state addi
+    rd_a1 rs1_s2 lw
+    rd_a2 rs1_s2 !128 lw
+    rd_ra $sha_finalize jal
+
+    ; finalize output hash
+    rd_a0 ~stdout_sha_state auipc
+    rd_a0 rs1_a0 !stdout_sha_state addi
+    rd_a1 rs1_s3 mv
+    rd_a2 rs1_s3 !128 lw
+    rd_ra $sha_finalize jal
+
+    ; write to journal
+    rd_t0 !2 addi ; `ecall::SOFTWARE'
+    rd_a0 !0 mv
+    rd_a1 !0 mv
+    rd_a2 ~sys_write auipc  ; Set syscall name C string
+    rd_a2 rs1_a2 !sys_write addi
+    rd_a3 !3 mv          ; file descriptor
+    rd_a4 ~journal_bytes auipc
+    rd_a4 rs1_a4 !journal_bytes addi
+    rd_a5 !64 mv
+    ecall                 ; `ecall(t0, a0, a1, a2, a3, a4, a5)'
+
+    ; hash journal
+    rd_t0 !3 mv ; `ecall::SHA'
+    rd_a0 ~journal_sha_state auipc ; input sha state
+    rd_a0 rs1_a0 !journal_sha_state addi
+    rd_a1 rs1_a0 mv ; output sha state (= input)
+    rd_a2 ~journal_bytes auipc
+    rd_a2 rs1_a2 !journal_bytes addi
+    rd_a3 rs1_a2 !32 addi
+    rd_a4 !2 mv ; block count
+    ecall
+
+    ; hash digest
+    rd_t0 !3 mv ; `ecall::SHA'
+    rd_a0 ~digest_sha_state auipc ; input sha state
+    rd_a0 rs1_a0 !digest_sha_state addi
+    rd_a1 rs1_a0 mv ; output sha state (= input)
+    rd_a2 ~digest_bytes auipc
+    rd_a2 rs1_a2 !digest_bytes addi
+    rd_a3 rs1_a2 !32 addi
+    rd_a4 !2 mv ; block count
+    ecall
+
+    ; Halt syscall to terminate.
+    rd_t0 !0 addi    ; `ecall::HALT'
+    rd_a0 !0 addi    ; `halt::TERMINATE' with 0 exit code
+    rd_a1 ~digest_sha_state auipc
+    rd_a1 rs1_a1 !digest_sha_state addi
+    ecall                 ; `ecall(t0, a0, a1)'
+    ret             ; unreachable, just for disassemblers
+
+:getchar
+    ; read 1 character from stdin into a0
+
+    rd_t2 rs1_s2 !0 lw ; pos
+    rd_t3 rs1_s2 !4 lw ; max pos
+    rs1_t2 rs2_t3 @skip_eof bne
+
+    ; here pos == max_pos
+    rd_a0 !-1 addi ; a0 = -1 (EOF)
+    ret
+
+    :skip_eof
+    ; here pos < max_pos
+    rd_t0 rs1_s2 !8 addi ; input_buffer
+    rd_t0 rs1_t0 rs2_s2 add ; t0 = input_buffer + pos
+    rd_a0 rs1_t0 lb ; a0 = *(char*)t0
+
+    ; increment pos
+    rd_t2 rs1_t2 !1 addi
+    rs1_s2 !0 rs2_t2 sw
+
+    ret
+
+:putchar
+    ; (eventually) put (char)a0 onto stdout
+
+    rd_t2 rs1_s3 !128 lw
+    rd_t0 rs1_t2 !63 andi
+    rd_t0 rs1_s3 rs2_t0 add ; t0 = output_buffer + (pos % 64)
+    rs1_t0 rs2_a0 sb ; *t0 = a0
+
+    ; increment pos
+    rd_t2 rs1_t2 !1 addi
+    rs1_s3 !128 rs2_t2 sw
+
+    rd_t0 rs1_t2 !63 andi
+    rs1_t0 @skip_flush bnez
+
+    ; here pos % 64 == 0
+    ; write out the buffer and compress
+    rd_t0 !2 mv ; `ecall::SOFTWARE'
+    rd_a0 !0 mv
+    rd_a1 !0 mv
+    rd_a2 ~sys_write auipc  ; Set syscall name C string
+    rd_a2 rs1_a2 !sys_write addi
+    rd_a3 !1 mv          ; file descriptor
+    rd_a4 rs1_s3 mv
+    rd_a5 !64 mv
+    ecall                 ; `ecall(t0, a0, a1, a2, a3, a4, a5)'
+
+    rd_t0 !3 mv ; `ecall::SHA'
+    rd_a0 ~stdout_sha_state auipc ; input sha state
+    rd_a0 rs1_a0 !stdout_sha_state addi
+    rd_a1 rs1_a0 mv ; output sha state (= input)
+    rd_a2 rs1_s3 mv ; buffer
+    rd_a3 rs1_a2 !32 addi
+    rd_a4 !1 mv ; block count
+    ecall
+    
+    :skip_flush
+    ret
+
+:sha_finalize
+    ; arguments
+    ; a0: sha state (in and out)
+    ; a1: buffer (in, 128 bytes spaces, contains at most 63 bytes incomplete block)
+    ; a2: total_bytes
+    ; local variables
+    ; a4 block count
+
+    ; add terminating bit
+    rd_t2 rs1_a2 !63 andi
+    rd_t2 rs1_a1 rs2_t2 add ; t2 = &buffer[total_bytes % 64]
+    rd_t3 !0x80 mv
+    rs1_t2 rs2_t3 sb ; *t2 = 0x80
+
+    ; insert total length in bits
+    rd_a4 !1 mv ; block count
+    rd_t2 rs1_a2 !63 andi
+    rd_t3 !56 mv
+    rs1_t2 rs2_t3 @skip_increase_block_count blt
+    ; here total_bytes % 64 >= 56
+    ; we will need an extra sha2 block to put the bit length
+    rd_a4 !2 mv
+
+    :skip_increase_block_count
+    ; insert bit length
+    ; NOTE breaks at 2^29 bytes
+    rd_t3 rs1_a2 !3 slli
+    rd_t2 !64 mv
+    rd_t2 rs1_a4 rs2_t2 mul
+    rd_t2 rs1_a1 rs2_t2 add ; t2 = buffer[block_count*64]
+    rd_t2 rs1_t2 !-1 addi
+    rs1_t2 rs2_t3 sb
+    rd_t3 rs1_t3 !8 srli
+    rd_t2 rs1_t2 !-1 addi
+    rs1_t2 rs2_t3 sb
+    rd_t3 rs1_t3 !8 srli
+    rd_t2 rs1_t2 !-1 addi
+    rs1_t2 rs2_t3 sb
+    rd_t3 rs1_t3 !8 srli
+    rd_t2 rs1_t2 !-1 addi
+    rs1_t2 rs2_t3 sb
+
+    ; compress
+    ; a0 already contains sha_state
+    ; a4 already contains block count
+    rd_t0 !3 mv ; `ecall::SHA'
+    rd_a2 rs1_a1 mv ; buffer
+    rd_a1 rs1_a0 mv ; output sha state (= input)
+    rd_a3 rs1_a2 !32 addi
+    ecall
+    ret
+    ; end of program
+
+
+:journal_bytes
+    ; journal data laid out with its padding
+
+    :stdin_sha_state
+        sha_state_init
+
+    :stdout_sha_state
+        sha_state_init
+
+    ; padding
+    '8000000000000000000000000000000000000000000000000000000000000000'
+    '0000000000000000000000000000000000000000000000000000000000000200'
+
+:digest_bytes
+    '77eafeb366a78b47747de0d7bb176284085ff5564887009a5be63da32d3559d4' ; sha2("risc0.Output")
+
+    :journal_sha_state
+        sha_state_init
+
+    ; zeroes for empty assumption log
+    '0000000000000000000000000000000000000000000000000000000000000000'
+    ; 16-bit 2, then padding
+    '0200800000000000000000000000000000000000000000000000000000000310'
+
+
+:digest_sha_state
+    sha_state_init
+
+; Null-terminated syscall names
+:sys_read
+    "risc0_zkvm_platform::syscall::nr::SYS_READ"
+
+:sys_write
+    "risc0_zkvm_platform::syscall::nr::SYS_WRITE"
+
+'00' ; padding
+:ELF_end

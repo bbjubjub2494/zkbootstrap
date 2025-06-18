@@ -1,0 +1,14 @@
+[package]
+name = "zb"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+zkbootstrap.workspace = true
+
+clap.workspace = true
+flate2.workspace = true
+rmp-serde.workspace = true
+ptree.workspace = true
+hex.workspace = true
+anyhow.workspace = true

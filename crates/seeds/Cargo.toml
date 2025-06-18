@@ -1,0 +1,16 @@
+[package]
+name = "seeds"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+
+[dependencies]
+rust-embed.workspace = true
+zkbootstrap.workspace = true
+
+[build-dependencies]
+build-rs.workspace = true
+
+[dev-dependencies]
+sha2.workspace = true
+methods.workspace = true

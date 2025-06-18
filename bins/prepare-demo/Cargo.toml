@@ -1,0 +1,14 @@
+[package]
+name = "prepare-demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+zkbootstrap.workspace = true
+seeds.workspace = true
+
+anyhow.workspace = true
+serde_json.workspace = true
+rmp-serde.workspace = true
+methods.workspace = true
+flate2.workspace = true
